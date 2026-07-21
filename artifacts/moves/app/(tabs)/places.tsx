@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import { unzipSync, strFromU8 } from 'fflate';
 import { useColors } from '@/hooks/useColors';
 import { PlaceCard } from '@/components/PlaceCard';
 import { usePlaces } from '@/context/PlacesContext';
@@ -172,26 +173,58 @@ export default function PlacesScreen() {
   const handleImportPress = useCallback(async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
-        type: 'application/json',
+        // Accept both the raw JSON and the full Takeout zip
+        type: ['application/json', 'application/zip',
+               'application/x-zip-compressed', 'application/octet-stream'],
         copyToCacheDirectory: true,
       });
       if (res.canceled || !res.assets?.[0]) return;
 
       setParsing(true);
-      const uri = res.assets[0].uri;
+      const asset = res.assets[0];
+      const isZip = asset.name?.endsWith('.zip') ||
+                    asset.mimeType?.includes('zip') ||
+                    asset.mimeType === 'application/octet-stream';
+
+      // Read raw bytes
+      let bytes: Uint8Array;
+      if (Platform.OS === 'web') {
+        const r = await fetch(asset.uri);
+        bytes = new Uint8Array(await r.arrayBuffer());
+      } else {
+        const b64 = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const binary = atob(b64);
+        bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      }
 
       let text: string;
-      if (Platform.OS === 'web') {
-        const r = await fetch(uri);
-        text = await r.text();
+      if (isZip) {
+        // Unzip and find the first Saved Places / Maps JSON
+        const unzipped = unzipSync(bytes);
+        const keys = Object.keys(unzipped);
+        // Prefer "Saved Places.json"; fall back to any .json in Maps folder
+        const target =
+          keys.find(k => k.includes('Saved Places')) ??
+          keys.find(k => k.endsWith('.json') && k.toLowerCase().includes('maps')) ??
+          keys.find(k => k.endsWith('.json'));
+        if (!target) throw new Error('No JSON file found inside the zip.');
+        text = strFromU8(unzipped[target]);
       } else {
-        text = await FileSystem.readAsStringAsync(uri);
+        // Plain JSON
+        const decoder = new TextDecoder();
+        text = decoder.decode(bytes);
       }
 
       const parsed = parseGoogleMapsJson(JSON.parse(text));
       setImportResult(parsed);
     } catch (e: any) {
-      Alert.alert('Import failed', e?.message ?? 'Could not read the file. Make sure it is the Saved Places JSON from Google Takeout.');
+      Alert.alert(
+        'Import failed',
+        e?.message ?? 'Could not read the file. Upload the Saved Places JSON or the full Takeout zip.',
+      );
     } finally {
       setParsing(false);
     }
