@@ -7,7 +7,6 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 
-// iOS 26 native tabs — liquid glass system appearance
 function NativeTabLayout() {
   return (
     <NativeTabs>
@@ -22,6 +21,10 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="moves">
         <Icon sf={{ default: 'map', selected: 'map.fill' }} />
         <Label>Moves</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="groups">
+        <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
+        <Label>Groups</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -56,9 +59,7 @@ function ClassicTabLayout() {
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}
-            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
           ) : null,
         tabBarLabelStyle: {
           fontFamily: 'Inter_500Medium',
@@ -71,27 +72,28 @@ function ClassicTabLayout() {
         name="index"
         options={{
           title: 'Plan',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Ionicons name="sparkles" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="places"
         options={{
           title: 'Places',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bookmark" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Ionicons name="bookmark" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="moves"
         options={{
           title: 'Moves',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="groups"
+        options={{
+          title: 'Groups',
+          tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} />,
         }}
       />
     </Tabs>
@@ -99,8 +101,6 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
-  }
+  if (isLiquidGlassAvailable()) return <NativeTabLayout />;
   return <ClassicTabLayout />;
 }

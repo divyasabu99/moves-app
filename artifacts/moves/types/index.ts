@@ -56,3 +56,32 @@ export interface GeneratedItinerary {
   stops: Stop[];
   totalEstimatedCostPerPerson: number;
 }
+
+// ── Groups / Collaboration ────────────────────────────────────────────────────
+
+export interface GroupMember {
+  id: string;
+  displayName: string;
+  joinedAt: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  inviteCode: string;
+  createdBy: string;
+  createdAt: string;
+  memberCount: number;
+  moveCount: number;
+}
+
+export interface GroupDetail extends Omit<Group, 'memberCount' | 'moveCount'> {
+  members: GroupMember[];
+}
+
+export interface SharedMove {
+  id: string;
+  move: Move;
+  sharedBy: { id: string; displayName: string };
+  sharedAt: string;
+}

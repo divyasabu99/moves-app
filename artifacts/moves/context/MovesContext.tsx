@@ -7,6 +7,7 @@ const STORAGE_KEY = '@moves_saved';
 interface MovesContextType {
   moves: Move[];
   saveMove: (itinerary: GeneratedItinerary, input: PlanInput) => void;
+  addManualMove: (move: Omit<Move, 'id' | 'status' | 'createdAt'>) => Move;
   updateMoveStatus: (id: string, status: Move['status']) => void;
   removeMove: (id: string) => void;
   loading: boolean;
@@ -15,12 +16,12 @@ interface MovesContextType {
 const MovesContext = createContext<MovesContextType>({
   moves: [],
   saveMove: () => {},
+  addManualMove: () => ({} as Move),
   updateMoveStatus: () => {},
   removeMove: () => {},
   loading: true,
 });
 
-/** Normalize moves loaded from storage — handle old format where budgetLevel/neighborhood were scalars */
 function normalizeMoves(raw: unknown[]): Move[] {
   return raw.map((m: any) => ({
     ...m,
@@ -32,6 +33,10 @@ function normalizeMoves(raw: unknown[]): Move[] {
         ? [m.neighborhood as string]
         : [],
   }));
+}
+
+function makeId(): string {
+  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
 
 export function MovesProvider({ children }: { children: React.ReactNode }) {
@@ -46,26 +51,25 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(stored);
           setMoves(normalizeMoves(Array.isArray(parsed) ? parsed : []));
         }
-      } catch {
-        // ignore
-      } finally {
+      } catch { /* ignore */ } finally {
         setLoading(false);
       }
     })();
   }, []);
 
+  const persist = (list: Move[]) =>
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+
   const saveMove = useCallback((itinerary: GeneratedItinerary, input: PlanInput) => {
     const budgetLevels: BudgetLevel[] = Array.isArray(input.budgetLevel)
-      ? input.budgetLevel
-      : [input.budgetLevel as unknown as BudgetLevel];
+      ? input.budgetLevel : [input.budgetLevel as unknown as BudgetLevel];
     const neighborhoods: string[] = Array.isArray(input.neighborhood)
       ? input.neighborhood
       : input.neighborhood && input.neighborhood !== 'Any'
-        ? [input.neighborhood as unknown as string]
-        : [];
+        ? [input.neighborhood as unknown as string] : [];
 
     const newMove: Move = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: makeId(),
       title: itinerary.title,
       vibe: input.vibe,
       date: input.date,
@@ -80,30 +84,45 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     setMoves(prev => {
-      const newList = [newMove, ...prev];
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-      return newList;
+      const next = [newMove, ...prev];
+      persist(next);
+      return next;
     });
+  }, []);
+
+  const addManualMove = useCallback((partial: Omit<Move, 'id' | 'status' | 'createdAt'>): Move => {
+    const newMove: Move = {
+      ...partial,
+      id: makeId(),
+      status: 'saved',
+      createdAt: new Date().toISOString(),
+    };
+    setMoves(prev => {
+      const next = [newMove, ...prev];
+      persist(next);
+      return next;
+    });
+    return newMove;
   }, []);
 
   const updateMoveStatus = useCallback((id: string, status: Move['status']) => {
     setMoves(prev => {
-      const newList = prev.map(m => (m.id === id ? { ...m, status } : m));
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-      return newList;
+      const next = prev.map(m => m.id === id ? { ...m, status } : m);
+      persist(next);
+      return next;
     });
   }, []);
 
   const removeMove = useCallback((id: string) => {
     setMoves(prev => {
-      const newList = prev.filter(m => m.id !== id);
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-      return newList;
+      const next = prev.filter(m => m.id !== id);
+      persist(next);
+      return next;
     });
   }, []);
 
   return (
-    <MovesContext.Provider value={{ moves, saveMove, updateMoveStatus, removeMove, loading }}>
+    <MovesContext.Provider value={{ moves, saveMove, addManualMove, updateMoveStatus, removeMove, loading }}>
       {children}
     </MovesContext.Provider>
   );

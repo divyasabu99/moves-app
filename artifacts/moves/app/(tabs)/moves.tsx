@@ -39,12 +39,24 @@ export default function MovesScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>
-          My Moves
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-          {moves.length} {moves.length === 1 ? 'move' : 'moves'} planned
-        </Text>
+        <View>
+          <Text style={[styles.title, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>
+            My Moves
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+            {moves.length} {moves.length === 1 ? 'move' : 'moves'} planned
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => router.push('/add-move')}
+          activeOpacity={0.7}
+          style={[styles.addBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <Ionicons name="add" size={20} color={colors.foreground} />
+          <Text style={[styles.addBtnText, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]}>
+            Add
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -58,18 +70,30 @@ export default function MovesScreen() {
             No moves yet
           </Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            Head to Plan and generate your first move.
+            Generate a move from the Plan tab, or add one manually.
           </Text>
-          <TouchableOpacity
-            onPress={() => router.push('/')}
-            style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="sparkles" size={16} color={colors.primaryForeground} />
-            <Text style={[styles.emptyBtnText, { color: colors.primaryForeground, fontFamily: 'Inter_600SemiBold' }]}>
-              Plan a Move
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.emptyActions}>
+            <TouchableOpacity
+              onPress={() => router.push('/')}
+              style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="sparkles" size={16} color={colors.primaryForeground} />
+              <Text style={[styles.emptyBtnText, { color: colors.primaryForeground, fontFamily: 'Inter_600SemiBold' }]}>
+                Plan a Move
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/add-move')}
+              style={[styles.emptyBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="create-outline" size={16} color={colors.foreground} />
+              <Text style={[styles.emptyBtnText, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
+                Add Manually
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <FlatList
@@ -93,23 +117,27 @@ export default function MovesScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    gap: 4,
+    paddingHorizontal: 20, paddingBottom: 16,
+    borderBottomWidth: 1, gap: 4,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   title: { fontSize: 26 },
   subtitle: { fontSize: 13 },
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 12, borderWidth: 1,
+  },
+  addBtnText: { fontSize: 14 },
   list: { padding: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  empty: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12,
-  },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
   emptyTitle: { fontSize: 20, textAlign: 'center' },
   emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  emptyActions: { flexDirection: 'row', gap: 10, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' },
   emptyBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, marginTop: 8,
+    paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12,
   },
   emptyBtnText: { fontSize: 14 },
 });

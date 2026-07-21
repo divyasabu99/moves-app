@@ -15,8 +15,8 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { PlacesProvider } from '@/context/PlacesContext';
 import { MovesProvider } from '@/context/MovesContext';
+import { UserProvider } from '@/context/UserContext';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -34,7 +34,15 @@ function RootLayoutNav() {
         options={{ headerShown: false, presentation: 'modal' }}
       />
       <Stack.Screen
+        name="add-move"
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
+      <Stack.Screen
         name="move-detail"
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="group-detail"
         options={{ headerShown: false, animation: 'slide_from_right' }}
       />
     </Stack>
@@ -63,11 +71,13 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView>
             <KeyboardProvider>
-              <PlacesProvider>
-                <MovesProvider>
-                  <RootLayoutNav />
-                </MovesProvider>
-              </PlacesProvider>
+              <UserProvider>
+                <PlacesProvider>
+                  <MovesProvider>
+                    <RootLayoutNav />
+                  </MovesProvider>
+                </PlacesProvider>
+              </UserProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

@@ -1,0 +1,227 @@
+import { Router } from "express";
+import { pool } from "@workspace/db";
+
+const router = Router();
+
+function generateInviteCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+// GET /api/groups?userId=
+router.get("/groups", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  try {
+    const { rows } = await pool.query(
+      `SELECT g.id, g.name, g.invite_code, g.created_by, g.created_at,
+              COUNT(DISTINCT gm.user_id)::int AS member_count,
+              COUNT(DISTINCT sm.id)::int AS move_count
+       FROM moves_groups g
+       JOIN moves_group_members gm ON gm.group_id = g.id AND gm.user_id = $1
+       JOIN moves_group_members gm_all ON gm_all.group_id = g.id
+       LEFT JOIN moves_shared_moves sm ON sm.group_id = g.id
+       GROUP BY g.id
+       ORDER BY g.created_at DESC`,
+      [userId]
+    );
+    res.json(rows.map(r => ({
+      id: r.id, name: r.name, inviteCode: r.invite_code,
+      createdBy: r.created_by, createdAt: r.created_at,
+      memberCount: r.member_count, moveCount: r.move_count,
+    })));
+  } catch (err) {
+    console.error("groups GET error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /api/groups — create a group
+router.post("/groups", async (req, res) => {
+  const { name, userId } = req.body as { name?: string; userId?: string };
+  if (!name?.trim() || !userId) { res.status(400).json({ error: "name and userId required" }); return; }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    let inviteCode = generateInviteCode();
+    // Ensure unique invite code
+    for (let i = 0; i < 5; i++) {
+      const { rows } = await client.query("SELECT 1 FROM moves_groups WHERE invite_code=$1", [inviteCode]);
+      if (rows.length === 0) break;
+      inviteCode = generateInviteCode();
+    }
+    const id = generateId();
+    const { rows } = await client.query(
+      `INSERT INTO moves_groups (id, name, invite_code, created_by)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [id, name.trim().slice(0, 80), inviteCode, userId]
+    );
+    await client.query(
+      "INSERT INTO moves_group_members (group_id, user_id) VALUES ($1, $2)",
+      [id, userId]
+    );
+    await client.query("COMMIT");
+    const g = rows[0];
+    res.status(201).json({
+      id: g.id, name: g.name, inviteCode: g.invite_code,
+      createdBy: g.created_by, createdAt: g.created_at,
+      memberCount: 1, moveCount: 0,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("groups POST error:", err);
+    res.status(500).json({ error: "Internal error" });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/groups/join — join by invite code
+router.post("/groups/join", async (req, res) => {
+  const { inviteCode, userId } = req.body as { inviteCode?: string; userId?: string };
+  if (!inviteCode?.trim() || !userId) { res.status(400).json({ error: "inviteCode and userId required" }); return; }
+  try {
+    const { rows: groups } = await pool.query(
+      "SELECT * FROM moves_groups WHERE invite_code = $1",
+      [inviteCode.trim().toUpperCase()]
+    );
+    if (groups.length === 0) { res.status(404).json({ error: "Group not found" }); return; }
+    const group = groups[0];
+    await pool.query(
+      `INSERT INTO moves_group_members (group_id, user_id)
+       VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [group.id, userId]
+    );
+    const { rows: [counts] } = await pool.query(
+      `SELECT COUNT(DISTINCT gm.user_id)::int AS member_count, COUNT(DISTINCT sm.id)::int AS move_count
+       FROM moves_group_members gm
+       LEFT JOIN moves_shared_moves sm ON sm.group_id = gm.group_id
+       WHERE gm.group_id = $1`,
+      [group.id]
+    );
+    res.json({
+      id: group.id, name: group.name, inviteCode: group.invite_code,
+      createdBy: group.created_by, createdAt: group.created_at,
+      memberCount: counts.member_count, moveCount: counts.move_count,
+    });
+  } catch (err) {
+    console.error("groups join error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /api/groups/:id — group details + members
+router.get("/groups/:id", async (req, res) => {
+  const { id } = req.params;
+  const { userId } = req.query as { userId?: string };
+  try {
+    const { rows: groups } = await pool.query("SELECT * FROM moves_groups WHERE id = $1", [id]);
+    if (groups.length === 0) { res.status(404).json({ error: "Not found" }); return; }
+    // Verify membership
+    if (userId) {
+      const { rows: mem } = await pool.query(
+        "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
+        [id, userId]
+      );
+      if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
+    }
+    const { rows: members } = await pool.query(
+      `SELECT u.id, u.display_name, gm.joined_at
+       FROM moves_group_members gm
+       JOIN moves_users u ON u.id = gm.user_id
+       WHERE gm.group_id = $1
+       ORDER BY gm.joined_at ASC`,
+      [id]
+    );
+    const g = groups[0];
+    res.json({
+      id: g.id, name: g.name, inviteCode: g.invite_code,
+      createdBy: g.created_by, createdAt: g.created_at,
+      members: members.map(m => ({ id: m.id, displayName: m.display_name, joinedAt: m.joined_at })),
+    });
+  } catch (err) {
+    console.error("groups GET:id error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /api/groups/:id/moves
+router.get("/groups/:id/moves", async (req, res) => {
+  const { id } = req.params;
+  const { userId } = req.query as { userId?: string };
+  try {
+    if (userId) {
+      const { rows: mem } = await pool.query(
+        "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
+        [id, userId]
+      );
+      if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
+    }
+    const { rows } = await pool.query(
+      `SELECT sm.id, sm.move_data, sm.shared_at, u.id AS user_id, u.display_name
+       FROM moves_shared_moves sm
+       JOIN moves_users u ON u.id = sm.user_id
+       WHERE sm.group_id = $1
+       ORDER BY sm.shared_at DESC
+       LIMIT 50`,
+      [id]
+    );
+    res.json(rows.map(r => ({
+      id: r.id, move: r.move_data,
+      sharedBy: { id: r.user_id, displayName: r.display_name },
+      sharedAt: r.shared_at,
+    })));
+  } catch (err) {
+    console.error("group moves GET error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /api/groups/:id/moves — share a move
+router.post("/groups/:id/moves", async (req, res) => {
+  const { id } = req.params;
+  const { userId, move } = req.body as { userId?: string; move?: object };
+  if (!userId || !move) { res.status(400).json({ error: "userId and move required" }); return; }
+  try {
+    const { rows: mem } = await pool.query(
+      "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
+      [id, userId]
+    );
+    if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
+    const shareId = generateId();
+    const { rows } = await pool.query(
+      `INSERT INTO moves_shared_moves (id, group_id, user_id, move_data)
+       VALUES ($1, $2, $3, $4) RETURNING id, shared_at`,
+      [shareId, id, userId, JSON.stringify(move)]
+    );
+    res.status(201).json({ id: rows[0].id, sharedAt: rows[0].shared_at });
+  } catch (err) {
+    console.error("group moves POST error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// DELETE /api/groups/:id/moves/:shareId
+router.delete("/groups/:id/moves/:shareId", async (req, res) => {
+  const { id, shareId } = req.params;
+  const { userId } = req.body as { userId?: string };
+  try {
+    const result = await pool.query(
+      "DELETE FROM moves_shared_moves WHERE id=$1 AND group_id=$2 AND user_id=$3",
+      [shareId, id, userId]
+    );
+    if (result.rowCount === 0) { res.status(404).json({ error: "Not found or not yours" }); return; }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("group moves DELETE error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+export default router;
