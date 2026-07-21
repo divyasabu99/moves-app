@@ -9,6 +9,17 @@ import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { StopCard } from '@/components/StopCard';
 import { useMoves } from '@/context/MovesContext';
+import { BudgetLevel } from '@/types';
+
+const BUDGET_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
+
+function budgetDisplay(levels: BudgetLevel | BudgetLevel[]): string {
+  const arr: BudgetLevel[] = Array.isArray(levels) ? levels : [levels];
+  if (arr.length === 0) return '$$';
+  if (arr.length === 1) return BUDGET_LABELS[arr[0]];
+  const sorted = [...arr].sort();
+  return `${BUDGET_LABELS[sorted[0]]}–${BUDGET_LABELS[sorted[sorted.length - 1]]}`;
+}
 
 export default function MoveDetailScreen() {
   const colors = useColors();
@@ -46,6 +57,11 @@ export default function MoveDetailScreen() {
   const durationLabel = hrs > 0 ? `${hrs}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins}m`;
   const totalCostAll = move.totalEstimatedCostPerPerson * move.partySize;
   const isDone = move.status === 'done';
+
+  // Normalize neighborhood
+  const hoods: string[] = Array.isArray(move.neighborhood)
+    ? move.neighborhood
+    : move.neighborhood ? [move.neighborhood as unknown as string] : [];
 
   const handleToggleDone = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -104,17 +120,23 @@ export default function MoveDetailScreen() {
                 {move.partySize} {move.partySize === 1 ? 'person' : 'people'}
               </Text>
             </View>
-            {move.neighborhood !== 'Any' && (
+            {hoods.length > 0 && (
               <View style={styles.metaItem}>
                 <Ionicons name="location-outline" size={14} color={colors.mutedForeground} />
                 <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-                  {move.neighborhood}
+                  {hoods.join(' · ')}
                 </Text>
               </View>
             )}
+            <View style={styles.metaItem}>
+              <Ionicons name="card-outline" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.metaText, { color: colors.accent, fontFamily: 'Inter_600SemiBold' }]}>
+                {budgetDisplay(move.budgetLevel)}
+              </Text>
+            </View>
           </View>
 
-          {/* Cost summary card */}
+          {/* Cost summary */}
           <View style={[styles.costCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.costItem}>
               <Text style={[styles.costLabel, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>

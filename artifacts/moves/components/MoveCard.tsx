@@ -2,9 +2,29 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
-import { Move } from '@/types';
+import { Move, BudgetLevel } from '@/types';
 
 const BUDGET_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
+
+function budgetDisplay(levels: BudgetLevel | BudgetLevel[]): string {
+  const arr: BudgetLevel[] = Array.isArray(levels) ? levels : [levels];
+  if (arr.length === 0) return '$$';
+  if (arr.length === 1) return BUDGET_LABELS[arr[0]];
+  const sorted = [...arr].sort();
+  if (sorted[sorted.length - 1] - sorted[0] === sorted.length - 1) {
+    // Contiguous range — show as range
+    return `${BUDGET_LABELS[sorted[0]]}–${BUDGET_LABELS[sorted[sorted.length - 1]]}`;
+  }
+  return sorted.map(l => BUDGET_LABELS[l]).join(', ');
+}
+
+function neighborhoodDisplay(hoods: string | string[]): string {
+  const arr = Array.isArray(hoods) ? hoods : hoods ? [hoods] : [];
+  if (arr.length === 0) return 'Anywhere';
+  if (arr.length === 1) return arr[0];
+  if (arr.length === 2) return `${arr[0]} & ${arr[1]}`;
+  return `${arr[0]}, ${arr[1]} +${arr.length - 2}`;
+}
 
 interface MoveCardProps {
   move: Move;
@@ -58,13 +78,28 @@ export function MoveCard({ move, onPress, onLongPress }: MoveCardProps) {
         <View style={styles.metaItem}>
           <Ionicons name="time-outline" size={12} color={colors.mutedForeground} />
           <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            {move.startTime}
+            {move.startTime}{move.endTime ? `–${move.endTime}` : ''}
           </Text>
         </View>
         <View style={styles.metaItem}>
           <Ionicons name="people-outline" size={12} color={colors.mutedForeground} />
           <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
             {move.partySize}
+          </Text>
+        </View>
+      </View>
+
+      {/* Neighborhood + budget row */}
+      <View style={styles.metaRow}>
+        <View style={styles.metaItem}>
+          <Ionicons name="location-outline" size={12} color={colors.mutedForeground} />
+          <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
+            {neighborhoodDisplay(move.neighborhood)}
+          </Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Text style={[styles.budgetText, { color: colors.accent, fontFamily: 'Inter_600SemiBold' }]}>
+            {budgetDisplay(move.budgetLevel)}
           </Text>
         </View>
       </View>
@@ -94,81 +129,26 @@ export function MoveCard({ move, onPress, onLongPress }: MoveCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 10,
-    gap: 10,
+    borderRadius: 18, borderWidth: 1, padding: 16, marginBottom: 10, gap: 10,
   },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  topLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  vibe: {
-    fontSize: 11,
-    letterSpacing: 1,
-  },
-  doneBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  doneText: {
-    fontSize: 11,
-  },
-  title: {
-    fontSize: 22,
-    lineHeight: 26,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'center',
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 12,
-  },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  vibe: { fontSize: 11, letterSpacing: 1 },
+  doneBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  doneText: { fontSize: 11 },
+  title: { fontSize: 22, lineHeight: 26 },
+  metaRow: { flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { fontSize: 12 },
+  budgetText: { fontSize: 12 },
   stopsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    paddingTop: 10,
+    flexDirection: 'row', alignItems: 'flex-start',
+    justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 10,
   },
-  stopsLeft: {
-    flex: 1,
-    gap: 5,
-  },
-  stopItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  stopDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  stopName: {
-    fontSize: 13,
-    flex: 1,
-  },
-  cost: {
-    fontSize: 16,
-    marginLeft: 10,
-  },
-  costSub: {
-    fontSize: 12,
-  },
+  stopsLeft: { flex: 1, gap: 5 },
+  stopItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  stopDot: { width: 6, height: 6, borderRadius: 3 },
+  stopName: { fontSize: 13, flex: 1 },
+  cost: { fontSize: 16, marginLeft: 10 },
+  costSub: { fontSize: 12 },
 });

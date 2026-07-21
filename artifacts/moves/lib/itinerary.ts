@@ -1,4 +1,4 @@
-import { Place, PlaceCategory, GeneratedItinerary, PlanInput, Stop } from '@/types';
+import { Place, PlaceCategory, GeneratedItinerary, PlanInput, Stop, BudgetLevel } from '@/types';
 
 export const VIBES = [
   'Dinner & Drinks',
@@ -94,20 +94,35 @@ function scorePlace(place: Place, input: PlanInput, targetCategory: PlaceCategor
   if (place.category !== targetCategory) return 0;
   let score = 50;
 
-  const hood = input.neighborhood.toLowerCase();
+  // Neighborhood match — any of the selected neighborhoods qualifies
+  const hoods = (input.neighborhood ?? []).map(n => n.toLowerCase());
   const placeHood = place.neighborhood.toLowerCase();
-  if (hood !== 'any' && (placeHood.includes(hood) || hood.includes(placeHood.split(' ')[0]))) {
+  if (hoods.length === 0) {
+    score += 10; // no filter applied, small bonus for not penalising
+  } else if (hoods.some(h => placeHood.includes(h) || h.includes(placeHood.split(' ')[0]))) {
     score += 30;
   }
 
-  if (place.priceLevel <= input.budgetLevel) {
-    score += 15 - Math.abs(place.priceLevel - input.budgetLevel) * 4;
+  // Budget fit — any of the selected budget levels qualifies
+  const budgets: BudgetLevel[] = Array.isArray(input.budgetLevel) ? input.budgetLevel : [input.budgetLevel as unknown as BudgetLevel];
+  if (budgets.length === 0) {
+    score += 10; // no filter, small bonus
+  } else if (budgets.includes(place.priceLevel)) {
+    score += 18;
   } else {
-    score -= 15;
+    const minB = Math.min(...budgets);
+    const maxB = Math.max(...budgets);
+    if (place.priceLevel >= minB && place.priceLevel <= maxB) {
+      score += 8; // within range but not exact
+    } else {
+      score -= 10;
+    }
   }
 
+  // Rating bonus
   score += ((place.rating ?? 4.0) - 3.0) * 5;
 
+  // Source quality
   const sourceBonus: Record<string, number> = { beli: 8, yelp: 5, google_maps: 3, manual: 1 };
   score += sourceBonus[place.source] ?? 0;
 
@@ -134,12 +149,9 @@ function getDescription(stops: Stop[]): string {
 export function generateItineraries(places: Place[], input: PlanInput): GeneratedItinerary[] {
   const sequences = VIBE_SEQUENCES[input.vibe] ?? VIBE_SEQUENCES['Dinner & Drinks'];
 
-  // Calculate available window in minutes
   const startMins = parseTimeToMinutes(input.startTime);
   const endMins = parseTimeToMinutes(input.endTime);
-  // Handle crossing midnight
   const windowMins = endMins > startMins ? endMins - startMins : (24 * 60 - startMins) + endMins;
-  // Only enforce window if end time is set and meaningful
   const hasWindow = windowMins > 30 && windowMins < 24 * 60;
 
   const results: GeneratedItinerary[] = [];
@@ -173,7 +185,6 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
 
     if (stops.length === 0) continue;
 
-    // If we have a time window, trim stops that push past it
     if (hasWindow) {
       let runningMins = 0;
       const fittingStops: Stop[] = [];
@@ -183,10 +194,7 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
           runningMins += stop.estimatedDurationMinutes;
         }
       }
-      if (fittingStops.length === 0) {
-        // Nothing fits — take at least the first stop
-        fittingStops.push(stops[0]);
-      }
+      if (fittingStops.length === 0) fittingStops.push(stops[0]);
       stops.splice(0, stops.length, ...fittingStops);
     }
 

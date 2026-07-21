@@ -32,8 +32,8 @@ export interface Move {
   startTime: string;
   endTime: string;
   partySize: number;
-  budgetLevel: BudgetLevel;
-  neighborhood: string;
+  budgetLevel: BudgetLevel[];
+  neighborhood: string[];
   stops: Stop[];
   totalEstimatedCostPerPerson: number;
   status: MoveStatus;
@@ -46,8 +46,8 @@ export interface PlanInput {
   startTime: string;
   endTime: string;
   partySize: number;
-  budgetLevel: BudgetLevel;
-  neighborhood: string;
+  budgetLevel: BudgetLevel[];
+  neighborhood: string[];
 }
 
 export interface GeneratedItinerary {

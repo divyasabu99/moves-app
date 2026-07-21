@@ -2,7 +2,6 @@ import { Router } from "express";
 
 const router = Router();
 
-// Parse a natural-language plan request into structured PlanInput
 router.post("/chat/parse", async (req, res) => {
   const { message } = req.body as { message?: string };
   if (!message?.trim()) {
@@ -11,34 +10,28 @@ router.post("/chat/parse", async (req, res) => {
   }
 
   const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
   const systemPrompt = `You are a plan parser for a NYC outing planner app called MOVES. Today is ${today}.
 
 Extract structured information from the user's message and return ONLY a JSON object with these fields:
 - vibe: one of ["Dinner & Drinks", "Date Night", "Museum Day", "Brunch Run", "Night Out", "Foodie Crawl", "Cultural Day", "Low-Key Vibes"]
-- date: ISO date string (YYYY-MM-DD) — infer from today if the user says "tonight", "tomorrow", "Friday", etc.
+- date: ISO date string (YYYY-MM-DD). Infer from today if user says "tonight", "tomorrow", a weekday, etc.
 - startTime: time string like "7:00 PM". Default "7:00 PM".
-- endTime: time string like "11:00 PM". Must be 1-5 hours after startTime. Default 2-3 hours after startTime.
-- partySize: integer 1-12. Default 2.
-- budgetLevel: integer 1-4 where 1=cheap, 2=moderate, 3=upscale, 4=splurge. Default 2.
-- neighborhood: neighborhood name in NYC, or "Any" if not specified.
+- endTime: time string like "11:00 PM". Must be 1–5 hours after startTime. Default 3 hours after startTime.
+- partySize: integer 1–12. Default 2.
+- budgetLevel: ARRAY of integers from [1,2,3,4]. 1=cheap, 2=moderate, 3=upscale, 4=splurge. Can contain multiple values if the user is flexible. Default [2].
+- neighborhood: ARRAY of NYC neighborhood name strings. Empty array if not specified.
 
 Rules:
-- If user says "tonight" → today's date.
-- If user says a weekday like "Friday" → the next upcoming Friday.
-- If user mentions "brunch" or "lunch" → vibe "Brunch Run", startTime around "11:00 AM".
-- If user mentions "museum" or "art" → vibe "Museum Day".
-- If user mentions "bar" or "bars" or "drinks" → vibe "Dinner & Drinks" or "Night Out".
-- If user says "date" → vibe "Date Night".
-- If user says "cheap" or "budget" → budgetLevel 1.
-- If user says "moderate" or "midrange" → budgetLevel 2.
-- If user says "upscale" or "fancy" → budgetLevel 3.
-- If user says "splurge" or "expensive" or "high-end" → budgetLevel 4.
+- "tonight" → today's date. "tomorrow" → tomorrow. A weekday → next upcoming occurrence.
+- "brunch"/"lunch" → vibe "Brunch Run", startTime ~"11:00 AM".
+- "museum"/"art" → "Museum Day". "bars"/"drinks" only → "Night Out". "dinner and drinks" → "Dinner & Drinks". "date" → "Date Night".
+- "cheap"/"budget" → [1]. "moderate"/"midrange" → [2]. "around $50" → [2]. "fancy"/"upscale" → [3]. "splurge"/"high-end" → [4].
+- "moderate to upscale"/"flexible on budget" → [2,3]. "any budget" → [1,2,3,4].
+- Neighborhoods: extract any NYC neighborhoods mentioned. If user says "West Village and SoHo" → ["West Village","SoHo"].
+- If no neighborhood mentioned → [].
 
 Return ONLY valid JSON. No markdown, no explanation.`;
 
@@ -63,8 +56,7 @@ Return ONLY valid JSON. No markdown, no explanation.`;
     );
 
     if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      console.error("OpenAI error:", errText);
+      console.error("OpenAI error:", await apiRes.text());
       res.status(502).json({ error: "AI parsing failed" });
       return;
     }
@@ -76,7 +68,6 @@ Return ONLY valid JSON. No markdown, no explanation.`;
 
     let parsed: Record<string, unknown>;
     try {
-      // Strip markdown code fences if present
       const clean = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
       parsed = JSON.parse(clean);
     } catch {
@@ -84,48 +75,41 @@ Return ONLY valid JSON. No markdown, no explanation.`;
       return;
     }
 
-    // Sanitize and fill defaults
     const vibes = [
-      "Dinner & Drinks",
-      "Date Night",
-      "Museum Day",
-      "Brunch Run",
-      "Night Out",
-      "Foodie Crawl",
-      "Cultural Day",
-      "Low-Key Vibes",
+      "Dinner & Drinks","Date Night","Museum Day","Brunch Run",
+      "Night Out","Foodie Crawl","Cultural Day","Low-Key Vibes",
     ];
 
-    const vibe = vibes.includes(parsed.vibe as string)
-      ? (parsed.vibe as string)
-      : "Dinner & Drinks";
+    const vibe = vibes.includes(parsed.vibe as string) ? (parsed.vibe as string) : "Dinner & Drinks";
+    const partySize = typeof parsed.partySize === "number" && parsed.partySize >= 1 && parsed.partySize <= 12
+      ? parsed.partySize : 2;
 
-    const partySize =
-      typeof parsed.partySize === "number" &&
-      parsed.partySize >= 1 &&
-      parsed.partySize <= 12
-        ? parsed.partySize
-        : 2;
+    // budgetLevel — normalise to array
+    let budgetLevel: number[];
+    if (Array.isArray(parsed.budgetLevel)) {
+      budgetLevel = (parsed.budgetLevel as number[]).filter(n => [1,2,3,4].includes(n));
+    } else if (typeof parsed.budgetLevel === "number" && [1,2,3,4].includes(parsed.budgetLevel)) {
+      budgetLevel = [parsed.budgetLevel];
+    } else {
+      budgetLevel = [2];
+    }
+    if (budgetLevel.length === 0) budgetLevel = [2];
 
-    const budgetLevel =
-      typeof parsed.budgetLevel === "number" &&
-      [1, 2, 3, 4].includes(parsed.budgetLevel as number)
-        ? parsed.budgetLevel
-        : 2;
+    // neighborhood — normalise to array
+    let neighborhood: string[];
+    if (Array.isArray(parsed.neighborhood)) {
+      neighborhood = (parsed.neighborhood as string[]).filter(s => typeof s === "string" && s.trim());
+    } else if (typeof parsed.neighborhood === "string" && parsed.neighborhood && parsed.neighborhood !== "Any") {
+      neighborhood = [parsed.neighborhood];
+    } else {
+      neighborhood = [];
+    }
 
-    const neighborhood =
-      typeof parsed.neighborhood === "string" && parsed.neighborhood
-        ? parsed.neighborhood
-        : "Any";
-
-    // Validate/default date
     let date: string;
     const rawDate = parsed.date as string;
-    if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-      date = rawDate;
-    } else {
-      date = new Date().toISOString().split("T")[0];
-    }
+    date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? rawDate
+      : new Date().toISOString().split("T")[0];
 
     res.json({
       vibe,
