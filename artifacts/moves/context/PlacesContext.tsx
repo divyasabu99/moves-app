@@ -30,6 +30,7 @@ const SEED_PLACES: Place[] = [
 interface PlacesContextType {
   places: Place[];
   addPlace: (place: Omit<Place, 'id' | 'createdAt'>) => void;
+  addPlaces: (places: Place[]) => void;
   removePlace: (id: string) => void;
   loading: boolean;
 }
@@ -76,6 +77,16 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const addPlaces = useCallback((newPlaces: Place[]) => {
+    setPlaces(prev => {
+      const existingIds = new Set(prev.map(p => p.id));
+      const fresh = newPlaces.filter(p => !existingIds.has(p.id));
+      const newList = [...fresh, ...prev];
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
+      return newList;
+    });
+  }, []);
+
   const removePlace = useCallback((id: string) => {
     setPlaces(prev => {
       const newList = prev.filter(p => p.id !== id);
@@ -85,7 +96,7 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <PlacesContext.Provider value={{ places, addPlace, removePlace, loading }}>
+    <PlacesContext.Provider value={{ places, addPlace, addPlaces, removePlace, loading }}>
       {children}
     </PlacesContext.Provider>
   );
