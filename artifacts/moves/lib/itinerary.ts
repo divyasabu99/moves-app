@@ -1,4 +1,72 @@
-import { Place, PlaceCategory, GeneratedItinerary, PlanInput, Stop, BudgetLevel } from '@/types';
+import { Place, PlaceCategory, GeneratedItinerary, PlanInput, Stop, BudgetLevel, Transit } from '@/types';
+
+// ── Transit computation ───────────────────────────────────────────────────────
+
+const BOROUGH_MANHATTAN = new Set([
+  'West Village', 'East Village', 'SoHo', 'Lower East Side', 'Midtown', 'Chelsea',
+  'Upper West Side', 'Upper East Side', 'Harlem', 'Tribeca', 'NoLIta',
+  'Greenwich Village', 'Financial District', 'Meatpacking District',
+]);
+const BOROUGH_BROOKLYN = new Set([
+  'Williamsburg', 'Brooklyn Heights', 'Park Slope', 'Bushwick', 'DUMBO',
+  'Crown Heights', 'Greenpoint', 'Gowanus', 'Fort Greene', 'Cobble Hill',
+  'Carroll Gardens', 'Bed-Stuy', 'Prospect Heights',
+]);
+const BOROUGH_QUEENS = new Set(['Astoria', 'Ridgewood']);
+
+function borough(neighborhood: string): string {
+  if (BOROUGH_MANHATTAN.has(neighborhood)) return 'manhattan';
+  if (BOROUGH_BROOKLYN.has(neighborhood)) return 'brooklyn';
+  if (BOROUGH_QUEENS.has(neighborhood)) return 'queens';
+  return 'other';
+}
+
+// Neighborhoods that are genuinely walkable to each other (≤15 min on foot)
+const WALKABLE_PAIRS = new Set([
+  'West Village|Greenwich Village', 'Greenwich Village|West Village',
+  'West Village|Meatpacking District', 'Meatpacking District|West Village',
+  'West Village|Chelsea', 'Chelsea|West Village',
+  'SoHo|NoLIta', 'NoLIta|SoHo',
+  'SoHo|Lower East Side', 'Lower East Side|SoHo',
+  'Tribeca|Financial District', 'Financial District|Tribeca',
+  'East Village|Lower East Side', 'Lower East Side|East Village',
+  'Williamsburg|Greenpoint', 'Greenpoint|Williamsburg',
+  'Williamsburg|Bushwick', 'Bushwick|Williamsburg',
+  'Park Slope|Gowanus', 'Gowanus|Park Slope',
+  'Fort Greene|DUMBO', 'DUMBO|Fort Greene',
+  'Cobble Hill|Carroll Gardens', 'Carroll Gardens|Cobble Hill',
+  'Brooklyn Heights|DUMBO', 'DUMBO|Brooklyn Heights',
+  'Crown Heights|Prospect Heights', 'Prospect Heights|Crown Heights',
+]);
+
+export function computeTransit(from: Place, to: Place): Transit {
+  const a = from.neighborhood;
+  const b = to.neighborhood;
+
+  // Same spot
+  if (a === b) return { mode: 'walk', estimatedMinutes: 7 };
+
+  // Walkable neighbour pairs
+  if (WALKABLE_PAIRS.has(`${a}|${b}`)) return { mode: 'walk', estimatedMinutes: 12 };
+
+  const ba = borough(a);
+  const bb = borough(b);
+
+  // Same borough → subway/bus
+  if (ba === bb && ba !== 'other') {
+    // Manhattan has denser transit so slightly faster
+    const mins = ba === 'manhattan' ? 14 : 18;
+    return { mode: 'subway', estimatedMinutes: mins };
+  }
+
+  // Brooklyn ↔ Queens fringe (Williamsburg ↔ Ridgewood / Bushwick ↔ Ridgewood)
+  if ((ba === 'brooklyn' && bb === 'queens') || (ba === 'queens' && bb === 'brooklyn')) {
+    return { mode: 'subway', estimatedMinutes: 16 };
+  }
+
+  // Cross-borough → rideshare is most practical
+  return { mode: 'rideshare', estimatedMinutes: 24 };
+}
 
 export const VIBES = [
   'Dinner & Drinks',
@@ -184,6 +252,11 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
     }
 
     if (stops.length === 0) continue;
+
+    // Attach transit connectors between adjacent stops
+    for (let i = 0; i < stops.length - 1; i++) {
+      stops[i] = { ...stops[i], transitToNext: computeTransit(stops[i].place, stops[i + 1].place) };
+    }
 
     if (hasWindow) {
       let runningMins = 0;

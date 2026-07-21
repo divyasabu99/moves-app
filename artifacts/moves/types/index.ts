@@ -17,11 +17,19 @@ export interface Place {
   createdAt: string;
 }
 
+export type TransitMode = 'walk' | 'subway' | 'rideshare';
+
+export interface Transit {
+  mode: TransitMode;
+  estimatedMinutes: number;
+}
+
 export interface Stop {
   placeId: string;
   place: Place;
   estimatedDurationMinutes: number;
   estimatedCostPerPerson: number;
+  transitToNext?: Transit;
 }
 
 export interface Move {
