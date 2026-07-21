@@ -202,16 +202,31 @@ export default function PlacesScreen() {
 
       let text: string;
       if (isZip) {
-        // Unzip and find the first Saved Places / Maps JSON
+        // Unzip and merge ALL list JSON files from the Maps folder
         const unzipped = unzipSync(bytes);
         const keys = Object.keys(unzipped);
-        // Prefer "Saved Places.json"; fall back to any .json in Maps folder
-        const target =
-          keys.find(k => k.includes('Saved Places')) ??
-          keys.find(k => k.endsWith('.json') && k.toLowerCase().includes('maps')) ??
-          keys.find(k => k.endsWith('.json'));
-        if (!target) throw new Error('No JSON file found inside the zip.');
-        text = strFromU8(unzipped[target]);
+
+        // Collect every .json in the Maps (your places) folder
+        const mapsKeys = keys.filter(k =>
+          k.endsWith('.json') &&
+          (k.toLowerCase().includes('maps') || k.toLowerCase().includes('saved'))
+        );
+        // Fall back to any .json if folder name doesn't match
+        const targets = mapsKeys.length > 0
+          ? mapsKeys
+          : keys.filter(k => k.endsWith('.json'));
+
+        if (targets.length === 0) throw new Error('No JSON files found inside the zip.');
+
+        // Merge all feature arrays into one synthetic FeatureCollection
+        const allFeatures: any[] = [];
+        for (const key of targets) {
+          try {
+            const parsed = JSON.parse(strFromU8(unzipped[key]));
+            if (Array.isArray(parsed.features)) allFeatures.push(...parsed.features);
+          } catch { /* skip malformed */ }
+        }
+        text = JSON.stringify({ type: 'FeatureCollection', features: allFeatures });
       } else {
         // Plain JSON
         const decoder = new TextDecoder();
