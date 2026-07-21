@@ -44,6 +44,7 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
       vibe: input.vibe,
       date: input.date,
       startTime: input.startTime,
+      endTime: input.endTime,
       partySize: input.partySize,
       budgetLevel: input.budgetLevel,
       neighborhood: input.neighborhood,

@@ -95,7 +95,7 @@ export default function MoveDetailScreen() {
             <View style={styles.metaItem}>
               <Ionicons name="time-outline" size={14} color={colors.mutedForeground} />
               <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-                {move.startTime} · {durationLabel} total
+                {move.startTime}{move.endTime ? ` – ${move.endTime}` : ''} · {durationLabel} est.
               </Text>
             </View>
             <View style={styles.metaItem}>

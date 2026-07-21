@@ -30,6 +30,7 @@ export interface Move {
   vibe: string;
   date: string;
   startTime: string;
+  endTime: string;
   partySize: number;
   budgetLevel: BudgetLevel;
   neighborhood: string;
@@ -43,6 +44,7 @@ export interface PlanInput {
   vibe: string;
   date: string;
   startTime: string;
+  endTime: string;
   partySize: number;
   budgetLevel: BudgetLevel;
   neighborhood: string;

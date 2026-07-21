@@ -68,28 +68,46 @@ const CATEGORY_DURATIONS: Record<PlaceCategory, number> = {
 
 const PRICE_PER_LEVEL: Record<number, number> = { 1: 15, 2: 30, 3: 55, 4: 85 };
 
+/** Parse "7:00 PM" or "11:30 AM" to total minutes since midnight */
+export function parseTimeToMinutes(time: string): number {
+  const match = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return 19 * 60;
+  let hours = parseInt(match[1], 10);
+  const mins = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+  if (period === 'PM' && hours !== 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + mins;
+}
+
+/** Format minutes-since-midnight back to "7:00 PM" */
+export function minutesToTimeString(totalMins: number): string {
+  const h24 = totalMins % (24 * 60);
+  const h = Math.floor(h24 / 60);
+  const m = h24 % 60;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
+}
+
 function scorePlace(place: Place, input: PlanInput, targetCategory: PlaceCategory): number {
   if (place.category !== targetCategory) return 0;
   let score = 50;
 
-  // Neighborhood match (partial, case-insensitive)
   const hood = input.neighborhood.toLowerCase();
   const placeHood = place.neighborhood.toLowerCase();
   if (hood !== 'any' && (placeHood.includes(hood) || hood.includes(placeHood.split(' ')[0]))) {
     score += 30;
   }
 
-  // Budget fit
   if (place.priceLevel <= input.budgetLevel) {
     score += 15 - Math.abs(place.priceLevel - input.budgetLevel) * 4;
   } else {
     score -= 15;
   }
 
-  // Rating bonus
   score += ((place.rating ?? 4.0) - 3.0) * 5;
 
-  // Source quality
   const sourceBonus: Record<string, number> = { beli: 8, yelp: 5, google_maps: 3, manual: 1 };
   score += sourceBonus[place.source] ?? 0;
 
@@ -115,6 +133,15 @@ function getDescription(stops: Stop[]): string {
 
 export function generateItineraries(places: Place[], input: PlanInput): GeneratedItinerary[] {
   const sequences = VIBE_SEQUENCES[input.vibe] ?? VIBE_SEQUENCES['Dinner & Drinks'];
+
+  // Calculate available window in minutes
+  const startMins = parseTimeToMinutes(input.startTime);
+  const endMins = parseTimeToMinutes(input.endTime);
+  // Handle crossing midnight
+  const windowMins = endMins > startMins ? endMins - startMins : (24 * 60 - startMins) + endMins;
+  // Only enforce window if end time is set and meaningful
+  const hasWindow = windowMins > 30 && windowMins < 24 * 60;
+
   const results: GeneratedItinerary[] = [];
 
   for (let seqIndex = 0; seqIndex < sequences.length; seqIndex++) {
@@ -131,7 +158,6 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
 
       if (candidates.length === 0) continue;
 
-      // Offset the pick index to produce diversity across itinerary options
       const pickIndex = Math.min(seqIndex, candidates.length - 1);
       const pick = candidates[pickIndex];
       if (pick) {
@@ -145,15 +171,32 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
       }
     }
 
-    if (stops.length > 0) {
-      const totalCost = stops.reduce((sum, s) => sum + s.estimatedCostPerPerson, 0);
-      results.push({
-        title: getTitle(stops, results.length),
-        description: getDescription(stops),
-        stops,
-        totalEstimatedCostPerPerson: totalCost,
-      });
+    if (stops.length === 0) continue;
+
+    // If we have a time window, trim stops that push past it
+    if (hasWindow) {
+      let runningMins = 0;
+      const fittingStops: Stop[] = [];
+      for (const stop of stops) {
+        if (runningMins + stop.estimatedDurationMinutes <= windowMins) {
+          fittingStops.push(stop);
+          runningMins += stop.estimatedDurationMinutes;
+        }
+      }
+      if (fittingStops.length === 0) {
+        // Nothing fits — take at least the first stop
+        fittingStops.push(stops[0]);
+      }
+      stops.splice(0, stops.length, ...fittingStops);
     }
+
+    const totalCost = stops.reduce((sum, s) => sum + s.estimatedCostPerPerson, 0);
+    results.push({
+      title: getTitle(stops, results.length),
+      description: getDescription(stops),
+      stops,
+      totalEstimatedCostPerPerson: totalCost,
+    });
 
     if (results.length >= 3) break;
   }
