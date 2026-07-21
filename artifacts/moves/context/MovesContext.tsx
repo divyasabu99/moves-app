@@ -6,7 +6,7 @@ const STORAGE_KEY = '@moves_saved';
 
 interface MovesContextType {
   moves: Move[];
-  saveMove: (itinerary: GeneratedItinerary, input: PlanInput) => void;
+  saveMove: (itinerary: GeneratedItinerary, input: PlanInput) => Move;
   addManualMove: (move: Omit<Move, 'id' | 'status' | 'createdAt'>) => Move;
   updateMoveStatus: (id: string, status: Move['status']) => void;
   removeMove: (id: string) => void;
@@ -60,7 +60,7 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
   const persist = (list: Move[]) =>
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 
-  const saveMove = useCallback((itinerary: GeneratedItinerary, input: PlanInput) => {
+  const saveMove = useCallback((itinerary: GeneratedItinerary, input: PlanInput): Move => {
     const budgetLevels: BudgetLevel[] = Array.isArray(input.budgetLevel)
       ? input.budgetLevel : [input.budgetLevel as unknown as BudgetLevel];
     const neighborhoods: string[] = Array.isArray(input.neighborhood)
@@ -88,6 +88,7 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
       persist(next);
       return next;
     });
+    return newMove;
   }, []);
 
   const addManualMove = useCallback((partial: Omit<Move, 'id' | 'status' | 'createdAt'>): Move => {
