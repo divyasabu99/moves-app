@@ -432,7 +432,7 @@ export default function PlanScreen() {
 
       {/* Generate / Plan button */}
       <View style={[styles.footer, {
-        paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 8),
+        paddingBottom: insets.bottom + (Platform.OS === 'web' ? 96 : 58),
         backgroundColor: colors.background,
         borderTopColor: colors.border,
       }]}>
