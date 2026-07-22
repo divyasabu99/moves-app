@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Alert, Platform, ActivityIndicator, Modal, ScrollView,
+  Alert, Platform, ActivityIndicator, Modal, ScrollView, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -61,6 +61,7 @@ function ImportModal({
                 Import from Google Maps
               </Text>
               <Text style={[styles.sheetSubtitle, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                {(result as any).listName ? `"${(result as any).listName}" · ` : ''}
                 {result.imported.length} NYC places found
                 {result.skippedOutsideNYC > 0 ? ` · ${result.skippedOutsideNYC} outside NYC skipped` : ''}
               </Text>
@@ -142,6 +143,138 @@ function ImportModal({
   );
 }
 
+// ── Link import modal ─────────────────────────────────────────────────────────
+const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
+
+function LinkImportModal({
+  visible,
+  onClose,
+  onResult,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onResult: (result: ImportResult & { listName?: string }) => void;
+}) {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const [url, setUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = useCallback(async () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL()}/import/google-maps-list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Server error ${res.status}`);
+      onResult({
+        imported: data.places ?? [],
+        skippedOutsideNYC: data.skippedOutsideNYC ?? 0,
+        total: data.total ?? 0,
+        noNames: false,
+        listName: data.listName,
+      });
+      setUrl('');
+    } catch (e: any) {
+      Alert.alert(
+        'Could not import list',
+        e?.message ?? 'Make sure the link is a public Google Maps list and try again.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [url, onResult]);
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <View style={[linkStyles.sheet, { backgroundColor: colors.background, paddingBottom: insets.bottom + 32 }]}>
+          <View style={[linkStyles.header, { borderBottomColor: colors.border }]}>
+            <View style={linkStyles.handleWrap}>
+              <View style={[linkStyles.handle, { backgroundColor: colors.border }]} />
+            </View>
+            <View style={linkStyles.titleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[linkStyles.title, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>
+                  Import from link
+                </Text>
+                <Text style={[linkStyles.subtitle, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                  Paste a shared Google Maps list URL
+                </Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={linkStyles.closeBtn} activeOpacity={0.7}>
+                <Ionicons name="close" size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={linkStyles.body}>
+            <Text style={[linkStyles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
+              HOW TO GET THE LINK
+            </Text>
+            {[
+              'Open Google Maps → Saved → Lists',
+              'Tap the list you want to import',
+              'Tap the share icon (⋯) → Share list',
+              'Copy the link and paste it below',
+            ].map((step, i) => (
+              <View key={i} style={linkStyles.step}>
+                <View style={[linkStyles.stepNum, { backgroundColor: colors.muted }]}>
+                  <Text style={[linkStyles.stepNumText, { color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
+                    {i + 1}
+                  </Text>
+                </View>
+                <Text style={[linkStyles.stepText, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}>
+                  {step}
+                </Text>
+              </View>
+            ))}
+
+            <TextInput
+              value={url}
+              onChangeText={setUrl}
+              placeholder="https://maps.app.goo.gl/..."
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              style={[
+                linkStyles.input,
+                { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Inter_400Regular' },
+              ]}
+            />
+
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={!url.trim() || loading}
+              activeOpacity={0.8}
+              style={[
+                linkStyles.btn,
+                { backgroundColor: url.trim() && !loading ? colors.primary : colors.muted },
+              ]}
+            >
+              {loading
+                ? <ActivityIndicator color={colors.primaryForeground} size="small" />
+                : <>
+                    <Ionicons name="download-outline" size={17} color={colors.primaryForeground} />
+                    <Text style={[linkStyles.btnText, { color: colors.primaryForeground, fontFamily: 'Inter_600SemiBold' }]}>
+                      Fetch list
+                    </Text>
+                  </>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function PlacesScreen() {
   const colors = useColors();
@@ -149,10 +282,13 @@ export default function PlacesScreen() {
   const { places, addPlaces, removePlace, loading } = usePlaces();
   const [filter, setFilter] = useState<FilterKey>('all');
 
-  // Import state
+  // File import state
   const [parsing, setParsing] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importResult, setImportResult] = useState<(ImportResult & { listName?: string }) | null>(null);
   const [importing, setImporting] = useState(false);
+
+  // Link import state
+  const [linkModalVisible, setLinkModalVisible] = useState(false);
 
   const filtered = filter === 'all' ? places : places.filter(p => p.category === filter);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 16);
@@ -268,7 +404,15 @@ export default function PlacesScreen() {
             </Text>
           </View>
           <View style={styles.headerBtns}>
-            {/* Google Maps import */}
+            {/* Link import */}
+            <TouchableOpacity
+              onPress={() => setLinkModalVisible(true)}
+              style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="link-outline" size={20} color={colors.foreground} />
+            </TouchableOpacity>
+            {/* File / zip import */}
             <TouchableOpacity
               onPress={handleImportPress}
               disabled={parsing}
@@ -381,6 +525,16 @@ export default function PlacesScreen() {
         onClose={() => setImportResult(null)}
         importing={importing}
       />
+
+      {/* Link import modal */}
+      <LinkImportModal
+        visible={linkModalVisible}
+        onClose={() => setLinkModalVisible(false)}
+        onResult={(result) => {
+          setLinkModalVisible(false);
+          setImportResult(result);
+        }}
+      />
     </View>
   );
 }
@@ -475,4 +629,38 @@ const styles = StyleSheet.create({
   },
   sheetEmptyTitle: { fontSize: 18, textAlign: 'center' },
   sheetEmptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+});
+
+const linkStyles = StyleSheet.create({
+  sheet: { flex: 1 },
+  header: { borderBottomWidth: 1 },
+  handleWrap: { alignItems: 'center', paddingTop: 12, paddingBottom: 4 },
+  handle: { width: 36, height: 4, borderRadius: 2 },
+  titleRow: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16, gap: 12,
+  },
+  title: { fontSize: 20 },
+  subtitle: { fontSize: 13, marginTop: 3 },
+  closeBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  body: { flex: 1, padding: 24, gap: 14 },
+  label: { fontSize: 11, letterSpacing: 0.8, marginBottom: 2 },
+  step: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  stepNum: {
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', marginTop: 1,
+  },
+  stepNumText: { fontSize: 12 },
+  stepText: { fontSize: 14, lineHeight: 22, flex: 1 },
+  input: {
+    marginTop: 8,
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 13,
+    fontSize: 14,
+  },
+  btn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 12, marginTop: 4,
+  },
+  btnText: { fontSize: 15 },
 });
