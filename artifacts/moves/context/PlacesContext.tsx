@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Place } from '@/types';
+
+const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 const STORAGE_KEY = '@moves_places';
 
@@ -66,6 +68,47 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, []);
+
+  // Background: enrich all places missing vibeDescription after initial load
+  const enrichedRef = useRef(false);
+  useEffect(() => {
+    if (loading || enrichedRef.current) return;
+    enrichedRef.current = true;
+
+    const toEnrich = places.filter(p => !p.vibeDescription);
+    if (toEnrich.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const place of toEnrich) {
+        if (cancelled) break;
+        try {
+          const res = await fetch(`${BASE_URL}/lookup-place`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: place.name }),
+          });
+          const data = await res.json();
+          if (!cancelled) {
+            const patch: Partial<Place> = {};
+            if (data.vibeDescription) patch.vibeDescription = data.vibeDescription;
+            if (!place.address && data.address) patch.address = data.address;
+            if (Object.keys(patch).length > 0) {
+              setPlaces(prev => {
+                const updated = prev.map(p => p.id === place.id ? { ...p, ...patch } : p);
+                AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+                return updated;
+              });
+            }
+          }
+        } catch { /* silently skip */ }
+        // Pace requests to avoid overloading the API
+        await new Promise(r => setTimeout(r, 400));
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [loading]);
 
   const addPlace = useCallback((placeData: Omit<Place, 'id' | 'createdAt'>) => {
     const newPlace: Place = {

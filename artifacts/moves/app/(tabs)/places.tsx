@@ -132,7 +132,7 @@ export default function PlacesScreen() {
           renderItem={({ item }) => (
             <PlaceCard
               place={item}
-              onPress={() => router.push({ pathname: '/place-detail', params: { id: item.id } })}
+              onPress={() => router.push(`/place-detail?id=${item.id}`)}
               onLongPress={() => handleLongPress(item)}
             />
           )}
