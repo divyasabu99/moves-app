@@ -15,6 +15,8 @@ export interface Place {
   rating?: number;
   address?: string;
   notes?: string;
+  lat?: number;
+  lng?: number;
   createdAt: string;
 }
 
