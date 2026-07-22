@@ -31,6 +31,7 @@ interface PlacesContextType {
   places: Place[];
   addPlace: (place: Omit<Place, 'id' | 'createdAt'>) => void;
   addPlaces: (places: Place[]) => void;
+  updatePlace: (id: string, patch: Partial<Place>) => void;
   removePlace: (id: string) => void;
   loading: boolean;
 }
@@ -38,6 +39,8 @@ interface PlacesContextType {
 const PlacesContext = createContext<PlacesContextType>({
   places: [],
   addPlace: () => {},
+  addPlaces: () => {},
+  updatePlace: () => {},
   removePlace: () => {},
   loading: true,
 });
@@ -87,6 +90,14 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updatePlace = useCallback((id: string, patch: Partial<Place>) => {
+    setPlaces(prev => {
+      const newList = prev.map(p => p.id === id ? { ...p, ...patch } : p);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
+      return newList;
+    });
+  }, []);
+
   const removePlace = useCallback((id: string) => {
     setPlaces(prev => {
       const newList = prev.filter(p => p.id !== id);
@@ -96,7 +107,7 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <PlacesContext.Provider value={{ places, addPlace, addPlaces, removePlace, loading }}>
+    <PlacesContext.Provider value={{ places, addPlace, addPlaces, updatePlace, removePlace, loading }}>
       {children}
     </PlacesContext.Provider>
   );
