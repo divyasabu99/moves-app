@@ -114,9 +114,6 @@ export default function AuthScreen() {
         {/* Logo / wordmark */}
         <View style={styles.logoWrap}>
           <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>MOVES</Text>
-          <Text style={[styles.logoSub, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            plan your next outing
-          </Text>
         </View>
 
         {/* Mode tabs */}

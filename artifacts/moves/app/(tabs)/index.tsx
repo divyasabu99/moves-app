@@ -254,9 +254,6 @@ export default function PlanScreen() {
             <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
               MOVES
             </Text>
-            <Text style={[styles.tagline, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-              plan your next outing
-            </Text>
           </View>
           <View style={[styles.modeToggle, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {(['form', 'chat'] as Mode[]).map(m => (
