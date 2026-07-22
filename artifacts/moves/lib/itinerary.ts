@@ -222,6 +222,15 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
   const windowMins = endMins > startMins ? endMins - startMins : (24 * 60 - startMins) + endMins;
   const hasWindow = windowMins > 30 && windowMins < 24 * 60;
 
+  // Hard-filter to selected neighborhoods when any are chosen
+  const hoods = (input.neighborhood ?? []).map(n => n.toLowerCase());
+  const neighborhoodMatch = (place: Place) => {
+    if (hoods.length === 0) return true;
+    const ph = place.neighborhood.toLowerCase();
+    return hoods.some(h => ph.includes(h) || h.includes(ph.split(' ')[0]));
+  };
+  const neighborhoodPlaces = hoods.length > 0 ? places.filter(neighborhoodMatch) : places;
+
   const results: GeneratedItinerary[] = [];
 
   for (let seqIndex = 0; seqIndex < sequences.length; seqIndex++) {
@@ -230,7 +239,12 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
     const usedIds = new Set<string>();
 
     for (const category of sequence) {
-      const candidates = places
+      // Use neighborhood-filtered pool; fall back to all places if that category has no matches
+      const pool = neighborhoodPlaces.some(p => p.category === category && !usedIds.has(p.id))
+        ? neighborhoodPlaces
+        : places;
+
+      const candidates = pool
         .filter(p => !usedIds.has(p.id))
         .map(p => ({ place: p, score: scorePlace(p, input, category) }))
         .filter(c => c.score > 0)
