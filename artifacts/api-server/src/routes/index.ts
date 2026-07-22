@@ -6,10 +6,14 @@ import groupsRouter from "./groups.js";
 import importRouter from "./import.js";
 import lookupRouter from "./lookup.js";
 import suggestRouter from "./suggest.js";
+import authRouter from "./auth.js";
+import syncRouter from "./sync.js";
 
 const router = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
+router.use(syncRouter);
 router.use(chatRouter);
 router.use(usersRouter);
 router.use(groupsRouter);

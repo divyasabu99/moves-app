@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Place } from '@/types';
+import { useUser } from '@/context/UserContext';
 
 const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
-
 const STORAGE_KEY = '@moves_places';
 
 const SEED_PLACES: Place[] = [
@@ -50,7 +50,9 @@ const PlacesContext = createContext<PlacesContextType>({
 export function PlacesProvider({ children }: { children: React.ReactNode }) {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user, isAuthenticated } = useUser();
 
+  // ── Initial load from AsyncStorage ────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -69,15 +71,63 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  // Background: enrich all places missing vibeDescription after initial load
+  // ── Server sync: pull on login, push local if server is empty ────────────
+  const syncedUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated || !user || loading) return;
+    if (syncedUserRef.current === user.userId) return; // already synced this session
+    syncedUserRef.current = user.userId;
+
+    const token = user.token;
+    ;(async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/sync/places`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.places) && data.places.length > 0) {
+          // Server has data — use it
+          setPlaces(data.places);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data.places));
+        } else {
+          // No server data yet — push local places (new registration)
+          const stored = await AsyncStorage.getItem(STORAGE_KEY);
+          const localPlaces: Place[] = stored ? JSON.parse(stored) : [];
+          if (localPlaces.length > 0) {
+            await fetch(`${BASE_URL}/sync/places`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ places: localPlaces }),
+            });
+          }
+        }
+      } catch {
+        // Offline — keep using local
+      }
+    })();
+  }, [isAuthenticated, user?.userId, loading]);
+
+  // ── Push to server on every change (debounced 1.5 s) ────────────────────
+  const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pushToServer = useCallback((list: Place[], token: string) => {
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      fetch(`${BASE_URL}/sync/places`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ places: list }),
+      }).catch(() => {});
+    }, 1500);
+  }, []);
+
+  // ── Background enrichment ─────────────────────────────────────────────────
   const enrichedRef = useRef(false);
   useEffect(() => {
     if (loading || enrichedRef.current) return;
     enrichedRef.current = true;
-
     const toEnrich = places.filter(p => !p.vibeDescription);
     if (toEnrich.length === 0) return;
-
     let cancelled = false;
     (async () => {
       for (const place of toEnrich) {
@@ -102,13 +152,17 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } catch { /* silently skip */ }
-        // Pace requests to avoid overloading the API
         await new Promise(r => setTimeout(r, 400));
       }
     })();
-
     return () => { cancelled = true; };
   }, [loading]);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const persist = useCallback((list: Place[]) => {
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    if (isAuthenticated && user) pushToServer(list, user.token);
+  }, [isAuthenticated, user, pushToServer]);
 
   const addPlace = useCallback((placeData: Omit<Place, 'id' | 'createdAt'>) => {
     const newPlace: Place = {
@@ -116,38 +170,30 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
     };
-    setPlaces(prev => {
-      const newList = [newPlace, ...prev];
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-      return newList;
-    });
-  }, []);
+    setPlaces(prev => { const next = [newPlace, ...prev]; persist(next); return next; });
+  }, [persist]);
 
   const addPlaces = useCallback((newPlaces: Place[]) => {
     setPlaces(prev => {
       const existingIds = new Set(prev.map(p => p.id));
       const fresh = newPlaces.filter(p => !existingIds.has(p.id));
-      const newList = [...fresh, ...prev];
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-      return newList;
+      const next = [...fresh, ...prev];
+      persist(next);
+      return next;
     });
-  }, []);
+  }, [persist]);
 
   const updatePlace = useCallback((id: string, patch: Partial<Place>) => {
     setPlaces(prev => {
-      const newList = prev.map(p => p.id === id ? { ...p, ...patch } : p);
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-      return newList;
+      const next = prev.map(p => p.id === id ? { ...p, ...patch } : p);
+      persist(next);
+      return next;
     });
-  }, []);
+  }, [persist]);
 
   const removePlace = useCallback((id: string) => {
-    setPlaces(prev => {
-      const newList = prev.filter(p => p.id !== id);
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-      return newList;
-    });
-  }, []);
+    setPlaces(prev => { const next = prev.filter(p => p.id !== id); persist(next); return next; });
+  }, [persist]);
 
   return (
     <PlacesContext.Provider value={{ places, addPlace, addPlaces, updatePlace, removePlace, loading }}>

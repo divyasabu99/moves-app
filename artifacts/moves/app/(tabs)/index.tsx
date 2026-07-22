@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator,
+  TextInput, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,7 +69,7 @@ type Mode = 'form' | 'chat';
 export default function PlanScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userId } = useUser();
+  const { user, userId, logout } = useUser();
 
   const DATE_OPTIONS = getDateOptions();
 
@@ -228,7 +228,29 @@ export default function PlanScreen() {
       >
         {/* Header + mode toggle */}
         <View style={styles.header}>
-          <View>
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                user?.displayName || 'Account',
+                user?.email ?? '',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Sign Out',
+                    style: 'destructive',
+                    onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); logout(); },
+                  },
+                ]
+              );
+            }}
+            activeOpacity={0.7}
+            style={[styles.avatarBtn, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}
+          >
+            <Text style={[styles.avatarLetter, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
+              {(user?.displayName ?? 'M').charAt(0).toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
               MOVES
             </Text>
@@ -797,6 +819,11 @@ const styles = StyleSheet.create({
   },
   logo: { fontSize: 34, letterSpacing: 5 },
   tagline: { fontSize: 13, letterSpacing: 0.5, marginTop: 2 },
+  avatarBtn: {
+    width: 36, height: 36, borderRadius: 18, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginTop: 6,
+  },
+  avatarLetter: { fontSize: 15 },
   modeToggle: {
     flexDirection: 'row', borderRadius: 12, borderWidth: 1,
     padding: 3, gap: 2, marginTop: 6,

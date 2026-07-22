@@ -11,49 +11,74 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { PlacesProvider } from '@/context/PlacesContext';
 import { MovesProvider } from '@/context/MovesContext';
-import { UserProvider } from '@/context/UserContext';
+import { UserProvider, useUser } from '@/context/UserContext';
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+// Handles redirecting to /auth when not logged in
+function AuthGuard() {
+  const { isAuthenticated, authReady } = useUser();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!authReady) return;
+
+    const inAuthGroup = segments[0] === 'auth';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      router.replace('/auth');
+    } else if (isAuthenticated && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, authReady, segments]);
+
+  return null;
+}
+
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: 'Back' }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="results"
-        options={{ headerShown: false, animation: 'slide_from_bottom' }}
-      />
-      <Stack.Screen
-        name="add-place"
-        options={{ headerShown: false, presentation: 'modal' }}
-      />
-      <Stack.Screen
-        name="add-move"
-        options={{ headerShown: false, presentation: 'modal' }}
-      />
-      <Stack.Screen
-        name="import-places"
-        options={{ headerShown: false, presentation: 'modal' }}
-      />
-      <Stack.Screen
-        name="place-detail"
-        options={{ headerShown: false, animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
-        name="move-detail"
-        options={{ headerShown: false, animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
-        name="group-detail"
-        options={{ headerShown: false, animation: 'slide_from_right' }}
-      />
-    </Stack>
+    <>
+      <AuthGuard />
+      <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+        <Stack.Screen name="auth" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="results"
+          options={{ headerShown: false, animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
+          name="add-place"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="add-move"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="import-places"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="place-detail"
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="move-detail"
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="group-detail"
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+      </Stack>
+    </>
   );
 }
 

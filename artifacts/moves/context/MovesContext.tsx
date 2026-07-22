@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Move, GeneratedItinerary, PlanInput, BudgetLevel } from '@/types';
+import { useUser } from '@/context/UserContext';
 
+const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const STORAGE_KEY = '@moves_saved';
 
 interface MovesContextType {
@@ -15,7 +17,7 @@ interface MovesContextType {
 
 const MovesContext = createContext<MovesContextType>({
   moves: [],
-  saveMove: () => {},
+  saveMove: () => ({} as Move),
   addManualMove: () => ({} as Move),
   updateMoveStatus: () => {},
   removeMove: () => {},
@@ -42,7 +44,9 @@ function makeId(): string {
 export function MovesProvider({ children }: { children: React.ReactNode }) {
   const [moves, setMoves] = useState<Move[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user, isAuthenticated } = useUser();
 
+  // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -57,8 +61,60 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const persist = (list: Move[]) =>
+  // ── Server sync: pull on login, push local if server is empty ────────────
+  const syncedUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated || !user || loading) return;
+    if (syncedUserRef.current === user.userId) return;
+    syncedUserRef.current = user.userId;
+
+    const token = user.token;
+    ;(async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/sync/moves`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.moves) && data.moves.length > 0) {
+          const normalized = normalizeMoves(data.moves);
+          setMoves(normalized);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+        } else {
+          const stored = await AsyncStorage.getItem(STORAGE_KEY);
+          const localMoves: Move[] = stored ? normalizeMoves(JSON.parse(stored)) : [];
+          if (localMoves.length > 0) {
+            await fetch(`${BASE_URL}/sync/moves`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ moves: localMoves }),
+            });
+          }
+        }
+      } catch {
+        // Offline — keep local
+      }
+    })();
+  }, [isAuthenticated, user?.userId, loading]);
+
+  // ── Push to server on every change (debounced 1.5 s) ────────────────────
+  const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pushToServer = useCallback((list: Move[], token: string) => {
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      fetch(`${BASE_URL}/sync/moves`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ moves: list }),
+      }).catch(() => {});
+    }, 1500);
+  }, []);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const persist = useCallback((list: Move[]) => {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    if (isAuthenticated && user) pushToServer(list, user.token);
+  }, [isAuthenticated, user, pushToServer]);
 
   const saveMove = useCallback((itinerary: GeneratedItinerary, input: PlanInput): Move => {
     const budgetLevels: BudgetLevel[] = Array.isArray(input.budgetLevel)
@@ -83,44 +139,23 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
       status: 'saved',
       createdAt: new Date().toISOString(),
     };
-    setMoves(prev => {
-      const next = [newMove, ...prev];
-      persist(next);
-      return next;
-    });
+    setMoves(prev => { const next = [newMove, ...prev]; persist(next); return next; });
     return newMove;
-  }, []);
+  }, [persist]);
 
   const addManualMove = useCallback((partial: Omit<Move, 'id' | 'status' | 'createdAt'>): Move => {
-    const newMove: Move = {
-      ...partial,
-      id: makeId(),
-      status: 'saved',
-      createdAt: new Date().toISOString(),
-    };
-    setMoves(prev => {
-      const next = [newMove, ...prev];
-      persist(next);
-      return next;
-    });
+    const newMove: Move = { ...partial, id: makeId(), status: 'saved', createdAt: new Date().toISOString() };
+    setMoves(prev => { const next = [newMove, ...prev]; persist(next); return next; });
     return newMove;
-  }, []);
+  }, [persist]);
 
   const updateMoveStatus = useCallback((id: string, status: Move['status']) => {
-    setMoves(prev => {
-      const next = prev.map(m => m.id === id ? { ...m, status } : m);
-      persist(next);
-      return next;
-    });
-  }, []);
+    setMoves(prev => { const next = prev.map(m => m.id === id ? { ...m, status } : m); persist(next); return next; });
+  }, [persist]);
 
   const removeMove = useCallback((id: string) => {
-    setMoves(prev => {
-      const next = prev.filter(m => m.id !== id);
-      persist(next);
-      return next;
-    });
-  }, []);
+    setMoves(prev => { const next = prev.filter(m => m.id !== id); persist(next); return next; });
+  }, [persist]);
 
   return (
     <MovesContext.Provider value={{ moves, saveMove, addManualMove, updateMoveStatus, removeMove, loading }}>

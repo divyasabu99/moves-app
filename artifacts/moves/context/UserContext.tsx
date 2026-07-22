@@ -1,75 +1,125 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const USER_ID_KEY = '@moves_user_id';
+const TOKEN_KEY       = '@moves_token';
+const USER_ID_KEY     = '@moves_user_id';
 const DISPLAY_NAME_KEY = '@moves_display_name';
-
-function generateUUID(): string {
-  // RFC 4122 v4 UUID — safe in all JS environments
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-interface UserContextType {
-  userId: string;
-  displayName: string;
-  setDisplayName: (name: string) => Promise<void>;
-  ready: boolean;
-}
-
-const UserContext = createContext<UserContextType>({
-  userId: '', displayName: '', setDisplayName: async () => {}, ready: false,
-});
+const EMAIL_KEY       = '@moves_email';
 
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
-async function syncUser(userId: string, displayName: string) {
-  try {
-    await fetch(`${BASE_URL()}/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: userId, displayName }),
-    });
-  } catch {
-    // Offline — silently skip, will sync on next launch
-  }
+export interface AuthUser {
+  userId: string;
+  displayName: string;
+  email: string;
+  token: string;
 }
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [userId, setUserId] = useState('');
-  const [displayName, setDisplayNameState] = useState('');
-  const [ready, setReady] = useState(false);
+interface UserContextType {
+  // Auth
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  authReady: boolean;           // true once we've checked AsyncStorage
+  login: (user: AuthUser) => Promise<void>;
+  logout: () => Promise<void>;
+  updateDisplayName: (name: string) => void;
+  // Legacy compat — some older code reads these directly
+  userId: string;
+  displayName: string;
+}
 
+const UserContext = createContext<UserContextType>({
+  user: null,
+  isAuthenticated: false,
+  authReady: false,
+  login: async () => {},
+  logout: async () => {},
+  updateDisplayName: () => {},
+  userId: '',
+  displayName: '',
+});
+
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  // Restore session on launch
   useEffect(() => {
     (async () => {
-      let id = await AsyncStorage.getItem(USER_ID_KEY);
-      if (!id) {
-        id = generateUUID();
-        await AsyncStorage.setItem(USER_ID_KEY, id);
+      try {
+        const token = await AsyncStorage.getItem(TOKEN_KEY);
+        const userId = await AsyncStorage.getItem(USER_ID_KEY);
+        const displayName = await AsyncStorage.getItem(DISPLAY_NAME_KEY) ?? '';
+        const email = await AsyncStorage.getItem(EMAIL_KEY) ?? '';
+
+        if (token && userId) {
+          // Quick server-side verify to ensure token still valid
+          try {
+            const res = await fetch(`${BASE_URL()}/auth/verify`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setUser({ userId: data.userId, displayName: data.displayName, email, token });
+            } else {
+              // Token expired — clear storage
+              await clearStorage();
+            }
+          } catch {
+            // Offline — restore from storage optimistically
+            setUser({ userId, displayName, email, token });
+          }
+        }
+      } catch {
+        // ignore
+      } finally {
+        setAuthReady(true);
       }
-      const name = (await AsyncStorage.getItem(DISPLAY_NAME_KEY)) ?? '';
-      setUserId(id);
-      setDisplayNameState(name);
-      setReady(true);
-      syncUser(id, name || 'Anonymous');
     })();
   }, []);
 
-  const setDisplayName = useCallback(async (name: string) => {
-    const trimmed = name.trim().slice(0, 80);
-    setDisplayNameState(trimmed);
-    await AsyncStorage.setItem(DISPLAY_NAME_KEY, trimmed);
-    if (userId) await syncUser(userId, trimmed || 'Anonymous');
-  }, [userId]);
+  const login = useCallback(async (authUser: AuthUser) => {
+    await AsyncStorage.multiSet([
+      [TOKEN_KEY, authUser.token],
+      [USER_ID_KEY, authUser.userId],
+      [DISPLAY_NAME_KEY, authUser.displayName],
+      [EMAIL_KEY, authUser.email],
+    ]);
+    setUser(authUser);
+  }, []);
+
+  const logout = useCallback(async () => {
+    await clearStorage();
+    setUser(null);
+  }, []);
+
+  const updateDisplayName = useCallback((name: string) => {
+    if (!user) return;
+    const updated = { ...user, displayName: name };
+    setUser(updated);
+    AsyncStorage.setItem(DISPLAY_NAME_KEY, name);
+  }, [user]);
 
   return (
-    <UserContext.Provider value={{ userId, displayName, setDisplayName, ready }}>
+    <UserContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
+      authReady,
+      login,
+      logout,
+      updateDisplayName,
+      // Legacy compat
+      userId: user?.userId ?? '',
+      displayName: user?.displayName ?? '',
+    }}>
       {children}
     </UserContext.Provider>
   );
+}
+
+async function clearStorage() {
+  await AsyncStorage.multiRemove([TOKEN_KEY, USER_ID_KEY, DISPLAY_NAME_KEY, EMAIL_KEY]);
 }
 
 export const useUser = () => useContext(UserContext);
