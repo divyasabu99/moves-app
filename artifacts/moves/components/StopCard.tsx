@@ -28,6 +28,7 @@ export function StopCard({ stop, index, isLast }: StopCardProps) {
 
   const transit = !isLast ? stop.transitToNext : undefined;
   const transitMeta = transit ? TRANSIT_META[transit.mode] : null;
+  const isSuggested = stop.place.source === 'ai_suggested';
 
   // Per-mode accent colours — subtle, informational
   const TRANSIT_COLORS: Record<'walk' | 'subway' | 'rideshare', string> = {
@@ -54,9 +55,15 @@ export function StopCard({ stop, index, isLast }: StopCardProps) {
         </View>
 
         {/* Stop card */}
-        <View style={[styles.card, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+        <View style={[
+          styles.card,
+          {
+            backgroundColor: isSuggested ? colors.primary + '14' : colors.secondary,
+            borderColor: isSuggested ? colors.primary + '55' : colors.border,
+          },
+        ]}>
           <View style={styles.cardHeader}>
-            <View style={[styles.iconWrap, { backgroundColor: colors.muted }]}>
+            <View style={[styles.iconWrap, { backgroundColor: isSuggested ? colors.primary + '25' : colors.muted }]}>
               <Ionicons name={iconName as any} size={16} color={colors.primary} />
             </View>
             <View style={styles.cardInfo}>
