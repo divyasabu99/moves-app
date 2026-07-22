@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Alert, ActivityIndicator,
+  Alert, ActivityIndicator, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -139,8 +139,6 @@ export default function PlacesScreen() {
     </View>
   );
 }
-
-import { Platform } from 'react-native';
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
