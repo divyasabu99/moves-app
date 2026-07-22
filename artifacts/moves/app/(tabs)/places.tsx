@@ -59,13 +59,22 @@ export default function PlacesScreen() {
               {places.length} {places.length === 1 ? 'place' : 'places'} saved
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => router.push('/add-place')}
-            style={[styles.addBtn, { backgroundColor: colors.primary }]}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={22} color={colors.primaryForeground} />
-          </TouchableOpacity>
+          <View style={styles.headerBtns}>
+            <TouchableOpacity
+              onPress={() => router.push('/import-places')}
+              style={[styles.importBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="download-outline" size={18} color={colors.foreground} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/add-place')}
+              style={[styles.addBtn, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={22} color={colors.primaryForeground} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <FlatList
@@ -159,6 +168,12 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 26 },
   subtitle: { fontSize: 13, marginTop: 2 },
+  headerBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  importBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+  },
   addBtn: {
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
