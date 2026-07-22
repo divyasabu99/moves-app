@@ -94,10 +94,10 @@ router.post("/places/autocomplete", async (req, res) => {
     return;
   }
 
-  // Build a neighbourhood hint from coordinates when available
-  let locationHint = "in NYC";
+  // Build a location hint from coordinates when available
+  let locationHint = "in or around NYC";
   if (lat && lng) {
-    locationHint = `near coordinates ${lat.toFixed(4)}, ${lng.toFixed(4)} in NYC`;
+    locationHint = `within 10 miles of coordinates ${lat.toFixed(4)}, ${lng.toFixed(4)} (include all boroughs, nearby NJ, and surrounding areas)`;
   }
 
   try {
@@ -113,14 +113,15 @@ router.post("/places/autocomplete", async (req, res) => {
         messages: [
           {
             role: "system",
-            content: `You are an NYC places expert. Given a partial place name, return up to 5 real NYC places that match.
-Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood", "priceLevel", "address", "vibes" }, ... ] }
+            content: `You are a local places expert for the NYC metro area. Given a partial place name, return up to 5 real places that match within the search area.
+Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood", "priceLevel", "address", "vibeDescription", "vibes" }, ... ] }
 - category: "restaurant"|"bar"|"cafe"|"museum"|"park"|"shop"|"activity"
 - priceLevel: 1-4
 - vibes: array of up to 3 short strings
 - vibeDescription: a single punchy sentence capturing the feel, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge"
-- Only include places you are confident exist in NYC
-- If fewer than 5 match, return fewer — never invent places`,
+- Search area covers all NYC boroughs plus surrounding areas within 10 miles (Jersey City, Hoboken, Astoria, Long Island City, etc.)
+- Only include places you are confident are real — never invent places
+- If fewer than 5 match, return fewer`,
           },
           {
             role: "user",
