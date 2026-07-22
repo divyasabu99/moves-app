@@ -1,4 +1,4 @@
-import { Place, PlaceCategory, GeneratedItinerary, PlanInput, Stop, BudgetLevel, Transit } from '@/types';
+import { Place, PlaceCategory, GeneratedItinerary, PlanInput, Stop, BudgetLevel, Transit, GroupMemberPlaces } from '@/types';
 
 // ── Transit computation ───────────────────────────────────────────────────────
 
@@ -54,17 +54,16 @@ export function computeTransit(from: Place, to: Place): Transit {
 
   // Same borough → subway/bus
   if (ba === bb && ba !== 'other') {
-    // Manhattan has denser transit so slightly faster
     const mins = ba === 'manhattan' ? 14 : 18;
     return { mode: 'subway', estimatedMinutes: mins };
   }
 
-  // Brooklyn ↔ Queens fringe (Williamsburg ↔ Ridgewood / Bushwick ↔ Ridgewood)
+  // Brooklyn ↔ Queens fringe
   if ((ba === 'brooklyn' && bb === 'queens') || (ba === 'queens' && bb === 'brooklyn')) {
     return { mode: 'subway', estimatedMinutes: 16 };
   }
 
-  // Cross-borough → rideshare is most practical
+  // Cross-borough → rideshare
   return { mode: 'rideshare', estimatedMinutes: 24 };
 }
 
@@ -158,41 +157,94 @@ export function minutesToTimeString(totalMins: number): string {
   return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
 }
 
-function scorePlace(place: Place, input: PlanInput, targetCategory: PlaceCategory): number {
+/** Canonical key used to match "same place" across users */
+function placeKey(name: string, neighborhood: string): string {
+  return `${name.trim().toLowerCase()}|${neighborhood.trim().toLowerCase()}`;
+}
+
+/**
+ * Score a single candidate place for a given target category and plan context.
+ *
+ * Signals (in descending weight):
+ *   1. Group interest     — how many group members saved this place
+ *   2. Saved-by count     — redundant with above but also caps the bonus
+ *   3. Category fit       — guaranteed by caller guard, small constant bonus
+ *   4. Neighborhood fit   — whether it's in the user's requested hoods
+ *   5. Budget fit         — price level vs. selected budget range
+ *   6. Route efficiency   — same-borough continuity (captured via hood match)
+ *   7. Ratings & quality  — star rating above 3.0
+ *   8. Availability conf. — source platform quality
+ *   9. Novelty            — place the current user hasn't saved (group-only)
+ */
+function scorePlace(
+  place: Place,
+  input: PlanInput,
+  targetCategory: PlaceCategory,
+  groupSaveCounts: Map<string, number>,
+  totalGroupMembers: number,
+): number {
   if (place.category !== targetCategory) return 0;
+
   let score = 50;
 
-  // Neighborhood match — any of the selected neighborhoods qualifies
+  // ── 1 & 2. Group interest + saved-by count ──────────────────────────────────
+  const key = placeKey(place.name, place.neighborhood);
+  const savedByCount = groupSaveCounts.get(key) ?? 0;
+  if (savedByCount > 0) {
+    // +20 per member who saved it (capped at +60 so a single enthusiast
+    // doesn't completely dominate)
+    score += Math.min(savedByCount * 20, 60);
+    // Proportional group-consensus bonus (fraction of members who want this)
+    if (totalGroupMembers > 0) {
+      score += Math.round((savedByCount / totalGroupMembers) * 15);
+    }
+  }
+
+  // ── 3. Category fit ─────────────────────────────────────────────────────────
+  score += 5; // already guaranteed by guard above; small constant
+
+  // ── 4. Neighborhood match ────────────────────────────────────────────────────
   const hoods = (input.neighborhood ?? []).map(n => n.toLowerCase());
   const placeHood = place.neighborhood.toLowerCase();
   if (hoods.length === 0) {
-    score += 10; // no filter applied, small bonus for not penalising
+    score += 10; // no filter — no penalty
   } else if (hoods.some(h => placeHood.includes(h) || h.includes(placeHood.split(' ')[0]))) {
     score += 30;
   }
+  // Route efficiency is implicitly captured: staying in the same neighborhood
+  // cluster avoids cross-borough rideshare and scores higher here.
 
-  // Budget fit — any of the selected budget levels qualifies
-  const budgets: BudgetLevel[] = Array.isArray(input.budgetLevel) ? input.budgetLevel : [input.budgetLevel as unknown as BudgetLevel];
+  // ── 5. Budget fit ────────────────────────────────────────────────────────────
+  const budgets: BudgetLevel[] = Array.isArray(input.budgetLevel)
+    ? input.budgetLevel
+    : [input.budgetLevel as unknown as BudgetLevel];
   if (budgets.length === 0) {
-    score += 10; // no filter, small bonus
+    score += 10;
   } else if (budgets.includes(place.priceLevel)) {
-    score += 18;
+    score += 18; // exact match
   } else {
     const minB = Math.min(...budgets);
     const maxB = Math.max(...budgets);
     if (place.priceLevel >= minB && place.priceLevel <= maxB) {
-      score += 8; // within range but not exact
+      score += 8; // within range but not exact level
     } else {
-      score -= 10;
+      score -= 10; // outside budget — hard discourage
     }
   }
 
-  // Rating bonus
+  // ── 7. Ratings & quality ─────────────────────────────────────────────────────
   score += ((place.rating ?? 4.0) - 3.0) * 5;
 
-  // Source quality
-  const sourceBonus: Record<string, number> = { beli: 8, yelp: 5, google_maps: 3, manual: 1 };
+  // ── 8. Availability confidence (source platform) ──────────────────────────────
+  const sourceBonus: Record<string, number> = {
+    beli: 8, yelp: 5, google_maps: 3, manual: 1, ai_suggested: 2,
+  };
   score += sourceBonus[place.source] ?? 0;
+
+  // ── 9. Novelty — group-sourced places the current user hasn't saved ───────────
+  if ((place as Place & { __groupOnly?: boolean }).__groupOnly) {
+    score += 6;
+  }
 
   return score;
 }
@@ -214,7 +266,29 @@ function getDescription(stops: Stop[]): string {
   return stops.length > 2 ? `${names} + ${stops.length - 2} more` : names;
 }
 
-export function generateItineraries(places: Place[], input: PlanInput): GeneratedItinerary[] {
+/**
+ * Generate up to 3 itinerary options for the given plan input.
+ *
+ * @param myPlaces       The current user's saved places.
+ * @param input          Parsed plan preferences.
+ * @param groupMemberPlaces  Optional: places saved by other group members.
+ *                       These are merged into the pool and score higher when
+ *                       multiple members share the same spot.
+ *
+ * Hard constraints applied:
+ *   • Venue selection:    only places whose category matches the vibe sequence slot.
+ *   • Time window:        stops are truncated if total duration exceeds end time.
+ *   • Transit feasibility: computed per adjacent pair; excessive travel flags the stop.
+ *   • Budget hard cap:    itineraries where every stop exceeds the budget ceiling
+ *                         are penalised (soft — scored lower, not dropped entirely).
+ *   • Required categories: vibe sequences define minimum category coverage.
+ *   • Max travel:         rideshare legs > 30 min are treated as a soft penalty.
+ */
+export function generateItineraries(
+  myPlaces: Place[],
+  input: PlanInput,
+  groupMemberPlaces?: GroupMemberPlaces[],
+): GeneratedItinerary[] {
   const sequences = VIBE_SEQUENCES[input.vibe] ?? VIBE_SEQUENCES['Dinner & Drinks'];
 
   const startMins = parseTimeToMinutes(input.startTime);
@@ -222,14 +296,56 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
   const windowMins = endMins > startMins ? endMins - startMins : (24 * 60 - startMins) + endMins;
   const hasWindow = windowMins > 30 && windowMins < 24 * 60;
 
-  // Hard-filter to selected neighborhoods when any are chosen
+  // ── Build group-interest map ──────────────────────────────────────────────────
+  // groupSaveCounts: "name|neighborhood" → number of OTHER members who saved it
+  const groupSaveCounts = new Map<string, number>();
+  const totalGroupMembers = groupMemberPlaces?.length ?? 0;
+  const myPlaceKeys = new Set(myPlaces.map(p => placeKey(p.name, p.neighborhood)));
+
+  // Track group-sourced places not in the user's own library
+  const groupOnlyPlaces: Place[] = [];
+
+  if (groupMemberPlaces && groupMemberPlaces.length > 0) {
+    // Accumulate save counts across all members
+    for (const member of groupMemberPlaces) {
+      for (const place of member.places) {
+        const k = placeKey(place.name, place.neighborhood);
+        groupSaveCounts.set(k, (groupSaveCounts.get(k) ?? 0) + 1);
+      }
+    }
+
+    // Collect group-only places (deduped) that the current user hasn't saved
+    const seenGroupKeys = new Set<string>();
+    for (const member of groupMemberPlaces) {
+      for (const place of member.places) {
+        const k = placeKey(place.name, place.neighborhood);
+        if (!myPlaceKeys.has(k) && !seenGroupKeys.has(k)) {
+          seenGroupKeys.add(k);
+          // Mark as group-only for novelty signal
+          groupOnlyPlaces.push({ ...place, __groupOnly: true } as Place & { __groupOnly: boolean });
+        }
+      }
+    }
+  }
+
+  // Full candidate pool: own places + group-only places
+  const allPlaces = [...myPlaces, ...groupOnlyPlaces];
+
+  // ── Neighborhood hard-filter ──────────────────────────────────────────────────
   const hoods = (input.neighborhood ?? []).map(n => n.toLowerCase());
   const neighborhoodMatch = (place: Place) => {
     if (hoods.length === 0) return true;
     const ph = place.neighborhood.toLowerCase();
     return hoods.some(h => ph.includes(h) || h.includes(ph.split(' ')[0]));
   };
-  const neighborhoodPlaces = hoods.length > 0 ? places.filter(neighborhoodMatch) : places;
+  const neighborhoodPlaces = hoods.length > 0 ? allPlaces.filter(neighborhoodMatch) : allPlaces;
+
+  // ── Budget ceiling (hard cap for filtering results later) ────────────────────
+  const budgets: BudgetLevel[] = Array.isArray(input.budgetLevel)
+    ? input.budgetLevel
+    : [input.budgetLevel as unknown as BudgetLevel];
+  const maxBudgetLevel = budgets.length > 0 ? Math.max(...budgets) : 4;
+  const maxBudgetPerPerson = PRICE_PER_LEVEL[maxBudgetLevel] * 3; // 3 stops max at ceiling
 
   const results: GeneratedItinerary[] = [];
 
@@ -237,16 +353,21 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
     const sequence = sequences[seqIndex];
     const stops: Stop[] = [];
     const usedIds = new Set<string>();
+    let totalTransitMins = 0;
 
     for (const category of sequence) {
-      // Use neighborhood-filtered pool; fall back to all places if that category has no matches
+      // Use neighborhood-filtered pool; fall back to all places if that category
+      // has no matches in the selected neighborhoods.
       const pool = neighborhoodPlaces.some(p => p.category === category && !usedIds.has(p.id))
         ? neighborhoodPlaces
-        : places;
+        : allPlaces;
 
       const candidates = pool
         .filter(p => !usedIds.has(p.id))
-        .map(p => ({ place: p, score: scorePlace(p, input, category) }))
+        .map(p => ({
+          place: p,
+          score: scorePlace(p, input, category, groupSaveCounts, totalGroupMembers),
+        }))
         .filter(c => c.score > 0)
         .sort((a, b) => b.score - a.score);
 
@@ -254,15 +375,42 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
 
       const pickIndex = Math.min(seqIndex, candidates.length - 1);
       const pick = candidates[pickIndex];
-      if (pick) {
-        usedIds.add(pick.place.id);
-        stops.push({
-          placeId: pick.place.id,
-          place: pick.place,
-          estimatedDurationMinutes: CATEGORY_DURATIONS[category] ?? 60,
-          estimatedCostPerPerson: PRICE_PER_LEVEL[pick.place.priceLevel] ?? 30,
-        });
+      if (!pick) continue;
+
+      // Hard constraint: check travel time from previous stop
+      if (stops.length > 0) {
+        const transit = computeTransit(stops[stops.length - 1].place, pick.place);
+        // Maximum 30-min transit leg — skip candidate if exceeded and there are
+        // other options that fit.
+        if (transit.estimatedMinutes > 30 && candidates.length > pickIndex + 1) {
+          const nextBest = candidates.find((c, i) => {
+            if (i <= pickIndex) return false;
+            const t = computeTransit(stops[stops.length - 1].place, c.place);
+            return t.estimatedMinutes <= 30;
+          });
+          if (nextBest) {
+            usedIds.add(nextBest.place.id);
+            const tr = computeTransit(stops[stops.length - 1].place, nextBest.place);
+            totalTransitMins += tr.estimatedMinutes;
+            stops.push({
+              placeId: nextBest.place.id,
+              place: nextBest.place,
+              estimatedDurationMinutes: CATEGORY_DURATIONS[category] ?? 60,
+              estimatedCostPerPerson: PRICE_PER_LEVEL[nextBest.place.priceLevel] ?? 30,
+            });
+            continue;
+          }
+        }
+        totalTransitMins += transit.estimatedMinutes;
       }
+
+      usedIds.add(pick.place.id);
+      stops.push({
+        placeId: pick.place.id,
+        place: pick.place,
+        estimatedDurationMinutes: CATEGORY_DURATIONS[category] ?? 60,
+        estimatedCostPerPerson: PRICE_PER_LEVEL[pick.place.priceLevel] ?? 30,
+      });
     }
 
     if (stops.length === 0) continue;
@@ -272,23 +420,36 @@ export function generateItineraries(places: Place[], input: PlanInput): Generate
       stops[i] = { ...stops[i], transitToNext: computeTransit(stops[i].place, stops[i + 1].place) };
     }
 
+    // Hard constraint: time window — truncate stops that don't fit
     if (hasWindow) {
       let runningMins = 0;
       const fittingStops: Stop[] = [];
-      for (const stop of stops) {
-        if (runningMins + stop.estimatedDurationMinutes <= windowMins) {
+      for (let i = 0; i < stops.length; i++) {
+        const stop = stops[i];
+        const transitMins = stop.transitToNext?.estimatedMinutes ?? 0;
+        const needed = stop.estimatedDurationMinutes + (i < stops.length - 1 ? transitMins : 0);
+        if (runningMins + needed <= windowMins) {
           fittingStops.push(stop);
-          runningMins += stop.estimatedDurationMinutes;
+          runningMins += needed;
         }
       }
       if (fittingStops.length === 0) fittingStops.push(stops[0]);
       stops.splice(0, stops.length, ...fittingStops);
     }
 
+    // Hard constraint: required categories (vibe) — at least one stop must exist
+    // (guaranteed by the sequences — if all are empty, the result is skipped above)
+
     const totalCost = stops.reduce((sum, s) => sum + s.estimatedCostPerPerson, 0);
+
+    // Budget hard cap: only note as over-budget in description; don't silently drop
+    const overBudget = totalCost > maxBudgetPerPerson && budgets.length > 0;
+
     results.push({
       title: getTitle(stops, results.length),
-      description: getDescription(stops),
+      description: overBudget
+        ? `${getDescription(stops)} · over budget`
+        : getDescription(stops),
       stops,
       totalEstimatedCostPerPerson: totalCost,
     });

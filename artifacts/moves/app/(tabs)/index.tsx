@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Platform, ActivityIndicator,
@@ -10,8 +10,11 @@ import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { VibeSelector } from '@/components/VibeSelector';
 import { DropdownPicker, DropdownOption } from '@/components/DropdownPicker';
-import { BudgetLevel, PlanInput } from '@/types';
+import { BudgetLevel, PlanInput, Group } from '@/types';
 import { NEIGHBORHOODS, parseTimeToMinutes } from '@/lib/itinerary';
+import { useUser } from '@/context/UserContext';
+
+const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 // ── Date options ─────────────────────────────────────────────────────────────
 function getDateOptions(): DropdownOption[] {
@@ -66,6 +69,7 @@ type Mode = 'form' | 'chat';
 export default function PlanScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { userId } = useUser();
 
   const DATE_OPTIONS = getDateOptions();
 
@@ -87,6 +91,14 @@ export default function PlanScreen() {
   // Suggest new places toggle
   const [suggestNew, setSuggestNew] = useState(false);
 
+  // Group planning
+  const [planWithGroup, setPlanWithGroup] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [selectedGroupName, setSelectedGroupName] = useState('');
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsError, setGroupsError] = useState(false);
+
   // Chat state
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -94,6 +106,32 @@ export default function PlanScreen() {
   const [generating, setGenerating] = useState(false);
 
   const endTimeOptions = getEndTimeOptions(startTime);
+
+  // ── Load user's groups ────────────────────────────────────────────────────
+  const loadGroups = useCallback(async () => {
+    if (!userId) return;
+    setGroupsLoading(true);
+    setGroupsError(false);
+    try {
+      const res = await fetch(`${BASE_URL()}/groups?userId=${encodeURIComponent(userId)}`);
+      if (!res.ok) throw new Error();
+      const data: Group[] = await res.json();
+      setGroups(data);
+      // Auto-select first group if none selected
+      if (data.length > 0 && !selectedGroupId) {
+        setSelectedGroupId(data[0].id);
+        setSelectedGroupName(data[0].name);
+      }
+    } catch {
+      setGroupsError(true);
+    } finally {
+      setGroupsLoading(false);
+    }
+  }, [userId, selectedGroupId]);
+
+  useEffect(() => {
+    if (planWithGroup) loadGroups();
+  }, [planWithGroup]);
 
   // Dropdown helpers
   const toggleDropdown = (key: OpenKey) =>
@@ -142,6 +180,8 @@ export default function PlanScreen() {
     partySize, budgetLevel: budgetLevels.length ? budgetLevels : [1, 2, 3, 4],
     neighborhood: neighborhoods,
     savedOnly: !suggestNew,
+    groupId: planWithGroup && selectedGroupId ? selectedGroupId : undefined,
+    groupName: planWithGroup && selectedGroupName ? selectedGroupName : undefined,
   });
 
   const handleGenerate = async () => {
@@ -181,7 +221,7 @@ export default function PlanScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: topPad, paddingBottom: 140 }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: topPad, paddingBottom: 160 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         onScrollBeginDrag={() => setOpenDropdown(null)}
@@ -430,6 +470,143 @@ export default function PlanScreen() {
                 </View>
               )}
             </View>
+
+            {/* ── Group planning ────────────────────────────────────────── */}
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
+                GROUP <Text style={[styles.labelHint, { color: colors.border }]}>· optional</Text>
+              </Text>
+
+              {/* Toggle */}
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  const next = !planWithGroup;
+                  setPlanWithGroup(next);
+                  if (!next) {
+                    setSelectedGroupId('');
+                    setSelectedGroupName('');
+                  }
+                }}
+                activeOpacity={0.75}
+                style={[styles.groupToggle, {
+                  backgroundColor: planWithGroup ? colors.primary + '18' : colors.card,
+                  borderColor: planWithGroup ? colors.primary + '55' : colors.border,
+                }]}
+              >
+                <View style={[styles.groupToggleIcon, {
+                  backgroundColor: planWithGroup ? colors.primary : colors.secondary,
+                }]}>
+                  <Ionicons name="people" size={16} color={planWithGroup ? colors.primaryForeground : colors.mutedForeground} />
+                </View>
+                <View style={styles.groupToggleText}>
+                  <Text style={[styles.groupToggleLabel, {
+                    color: planWithGroup ? colors.primary : colors.foreground,
+                    fontFamily: planWithGroup ? 'Inter_600SemiBold' : 'Inter_500Medium',
+                  }]}>
+                    Plan with a group
+                  </Text>
+                  <Text style={[styles.groupToggleSub, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                    {planWithGroup
+                      ? "We'll factor in what everyone's saved"
+                      : "Use places saved by your crew too"}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={planWithGroup ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={22}
+                  color={planWithGroup ? colors.primary : colors.border}
+                />
+              </TouchableOpacity>
+
+              {/* Group picker (visible when toggle is on) */}
+              {planWithGroup && (
+                <View style={styles.groupPickerWrap}>
+                  {groupsLoading ? (
+                    <View style={styles.groupPickerLoading}>
+                      <ActivityIndicator color={colors.primary} size="small" />
+                      <Text style={[styles.groupPickerHint, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                        Loading your groups…
+                      </Text>
+                    </View>
+                  ) : groupsError ? (
+                    <View style={styles.groupPickerLoading}>
+                      <Text style={[styles.groupPickerHint, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                        Couldn't load groups.{' '}
+                      </Text>
+                      <TouchableOpacity onPress={loadGroups} activeOpacity={0.7}>
+                        <Text style={[styles.groupPickerHint, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                          Retry
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : groups.length === 0 ? (
+                    <View style={styles.groupPickerLoading}>
+                      <Text style={[styles.groupPickerHint, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                        No groups yet.{' '}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => router.push('/(tabs)/groups')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.groupPickerHint, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                          Create one →
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.groupChips}>
+                      {groups.map(g => {
+                        const active = selectedGroupId === g.id;
+                        return (
+                          <TouchableOpacity
+                            key={g.id}
+                            onPress={() => {
+                              Haptics.selectionAsync();
+                              setSelectedGroupId(g.id);
+                              setSelectedGroupName(g.name);
+                            }}
+                            activeOpacity={0.75}
+                            style={[styles.groupChip, {
+                              backgroundColor: active ? colors.primary : colors.card,
+                              borderColor: active ? colors.primary : colors.border,
+                            }]}
+                          >
+                            <View style={[styles.groupChipAvatar, {
+                              backgroundColor: active ? colors.primaryForeground + '30' : colors.secondary,
+                            }]}>
+                              <Text style={[styles.groupChipLetter, {
+                                color: active ? colors.primaryForeground : colors.foreground,
+                                fontFamily: 'Inter_700Bold',
+                              }]}>
+                                {g.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View style={styles.groupChipInfo}>
+                              <Text style={[styles.groupChipName, {
+                                color: active ? colors.primaryForeground : colors.foreground,
+                                fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                              }]} numberOfLines={1}>
+                                {g.name}
+                              </Text>
+                              <Text style={[styles.groupChipMeta, {
+                                color: active ? colors.primaryForeground + 'AA' : colors.mutedForeground,
+                                fontFamily: 'Inter_400Regular',
+                              }]}>
+                                {g.memberCount} {g.memberCount === 1 ? 'member' : 'members'}
+                              </Text>
+                            </View>
+                            {active && (
+                              <Ionicons name="checkmark" size={16} color={colors.primaryForeground} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -545,6 +722,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, borderWidth: 1,
   },
   suggestChipText: { fontSize: 13 },
+  // Group planning
+  groupToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, borderWidth: 1, padding: 14,
+  },
+  groupToggleIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  groupToggleText: { flex: 1 },
+  groupToggleLabel: { fontSize: 14 },
+  groupToggleSub: { fontSize: 12, marginTop: 2, lineHeight: 16 },
+  groupPickerWrap: { gap: 8 },
+  groupPickerLoading: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  groupPickerHint: { fontSize: 13 },
+  groupChips: { gap: 8 },
+  groupChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: 12, borderWidth: 1, padding: 12,
+  },
+  groupChipAvatar: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  groupChipLetter: { fontSize: 15 },
+  groupChipInfo: { flex: 1 },
+  groupChipName: { fontSize: 14 },
+  groupChipMeta: { fontSize: 11, marginTop: 1 },
   // Chat
   chatSection: { gap: 14 },
   chatHint: { fontSize: 14, lineHeight: 20 },

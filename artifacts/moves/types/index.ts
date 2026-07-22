@@ -60,6 +60,14 @@ export interface PlanInput {
   budgetLevel: BudgetLevel[];
   neighborhood: string[];
   savedOnly?: boolean;
+  groupId?: string;
+  groupName?: string;
+}
+
+export interface GroupMemberPlaces {
+  userId: string;
+  displayName: string;
+  places: Place[];
 }
 
 export interface GeneratedItinerary {

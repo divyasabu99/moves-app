@@ -207,6 +207,54 @@ router.post("/groups/:id/moves", async (req, res) => {
   }
 });
 
+// POST /api/groups/:id/sync-places
+// Upserts the calling user's places for this group, returns all other members' places.
+router.post("/groups/:id/sync-places", async (req, res) => {
+  const { id } = req.params;
+  const { userId, places } = req.body as { userId?: string; places?: unknown[] };
+  if (!userId || !Array.isArray(places)) {
+    res.status(400).json({ error: "userId and places[] required" });
+    return;
+  }
+  try {
+    // Verify membership
+    const { rows: mem } = await pool.query(
+      "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
+      [id, userId]
+    );
+    if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
+
+    // Upsert this user's places
+    await pool.query(
+      `INSERT INTO moves_member_places (group_id, user_id, places, synced_at)
+       VALUES ($1, $2, $3::jsonb, NOW())
+       ON CONFLICT (group_id, user_id) DO UPDATE
+         SET places = $3::jsonb, synced_at = NOW()`,
+      [id, userId, JSON.stringify(places)]
+    );
+
+    // Return all OTHER members' places + their display names
+    const { rows } = await pool.query(
+      `SELECT mp.user_id, u.display_name, mp.places
+       FROM moves_member_places mp
+       JOIN moves_users u ON u.id = mp.user_id
+       WHERE mp.group_id = $1 AND mp.user_id <> $2`,
+      [id, userId]
+    );
+
+    res.json({
+      members: rows.map(r => ({
+        userId: r.user_id,
+        displayName: r.display_name,
+        places: r.places ?? [],
+      })),
+    });
+  } catch (err) {
+    console.error("sync-places error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // DELETE /api/groups/:id/moves/:shareId
 router.delete("/groups/:id/moves/:shareId", async (req, res) => {
   const { id, shareId } = req.params;

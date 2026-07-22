@@ -13,7 +13,7 @@ import { usePlaces } from '@/context/PlacesContext';
 import { useMoves } from '@/context/MovesContext';
 import { useUser } from '@/context/UserContext';
 import { generateItineraries, VIBE_SEQUENCES } from '@/lib/itinerary';
-import { PlanInput, GeneratedItinerary, Move, Group, Place } from '@/types';
+import { PlanInput, GeneratedItinerary, Move, Group, Place, GroupMemberPlaces } from '@/types';
 
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -231,10 +231,38 @@ export default function ResultsScreen() {
   const [aiSuggestions, setAiSuggestions] = useState<Place[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
 
+  // Group member places for group-aware scoring
+  const [groupMemberPlaces, setGroupMemberPlaces] = useState<GroupMemberPlaces[]>([]);
+  const [groupSyncLoading, setGroupSyncLoading] = useState(false);
+
   const itineraries = useMemo(() => {
     if (!plan) return [] as GeneratedItinerary[];
-    return generateItineraries([...places, ...aiSuggestions], plan);
-  }, [plan, places, aiSuggestions]);
+    return generateItineraries(
+      [...places, ...aiSuggestions],
+      plan,
+      groupMemberPlaces.length > 0 ? groupMemberPlaces : undefined,
+    );
+  }, [plan, places, aiSuggestions, groupMemberPlaces]);
+
+  // Sync own places + fetch group members' places when a group is selected
+  useEffect(() => {
+    if (!plan?.groupId || !userId) return;
+    setGroupSyncLoading(true);
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    fetch(`https://${domain}/api/groups/${plan.groupId}/sync-places`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, places }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data.members)) {
+          setGroupMemberPlaces(data.members as GroupMemberPlaces[]);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setGroupSyncLoading(false));
+  }, [plan?.groupId, userId]);
 
   // Fetch AI-suggested places when "suggest new" is on
   useEffect(() => {
@@ -356,6 +384,30 @@ export default function ResultsScreen() {
                     {neighborhoodLabel}
                   </Text>
                 </View>
+              )}
+            </View>
+          )}
+
+          {/* Group sync banner */}
+          {plan?.groupId && (
+            <View style={[styles.groupBanner, {
+              backgroundColor: colors.primary + '14',
+              borderColor: colors.primary + '44',
+            }]}>
+              <Ionicons name="people" size={14} color={colors.primary} />
+              {groupSyncLoading ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 2 }} />
+                  <Text style={[styles.groupBannerText, { color: colors.primary, fontFamily: 'Inter_400Regular' }]}>
+                    Syncing {plan.groupName ?? 'group'} places…
+                  </Text>
+                </>
+              ) : (
+                <Text style={[styles.groupBannerText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                  {groupMemberPlaces.length > 0
+                    ? `Scored with ${plan.groupName ?? 'group'} · ${groupMemberPlaces.length} member${groupMemberPlaces.length !== 1 ? 's' : ''} factored in`
+                    : `Planned with ${plan.groupName ?? 'group'} · invite members to add their places`}
+                </Text>
               )}
             </View>
           )}
@@ -507,6 +559,13 @@ const styles = StyleSheet.create({
     gap: 6, paddingVertical: 13, paddingHorizontal: 16, borderRadius: 12,
   },
   shareBtnText: { fontSize: 14 },
+  // Group banner
+  groupBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 9, marginBottom: 4,
+  },
+  groupBannerText: { fontSize: 12, flex: 1, lineHeight: 16 },
   // Empty
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
   emptyTitle: { fontSize: 20, textAlign: 'center' },
