@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { Place } from '@/types';
-import { CATEGORY_LABELS, SOURCE_LABELS, CATEGORY_ICONS } from '@/lib/itinerary';
+import { CATEGORY_LABELS, CATEGORY_ICONS } from '@/lib/itinerary';
 
 const BUDGET_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
 
@@ -56,11 +56,6 @@ export function PlaceCard({ place, onPress, onLongPress }: PlaceCardProps) {
           </Text>
         ) : null}
       </View>
-      <View style={[styles.sourceBadge, { backgroundColor: colors.muted }]}>
-        <Text style={[styles.sourceText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-          {SOURCE_LABELS[place.source]?.split(' ')[0] ?? 'Added'}
-        </Text>
-      </View>
     </TouchableOpacity>
   );
 }
@@ -108,13 +103,5 @@ const styles = StyleSheet.create({
   vibeDescription: {
     fontSize: 12,
     fontStyle: 'italic',
-  },
-  sourceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  sourceText: {
-    fontSize: 11,
   },
 });
