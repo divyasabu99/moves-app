@@ -1,0 +1,47 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          -73.85346179999999,
+          40.7275908
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "address": "99-32 66th Rd, Rego Park, NY 11374, USA",
+        "name": "Home"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -74.0078212,
+          40.7130079
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "address": "250 Broadway, New York, NY 10007, United States",
+        "name": "Work"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          9.424809999999999,
+          47.247299999999996
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "address": "Saxer Lücke",
+        "name": "Hike"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

@@ -1,0 +1,173 @@
+{"trips": [
+  {
+    "id": "4C334601213C85FB",
+    "place_visit": [
+      {
+        "id": "SOURCE_ID",
+        "place": {
+          "lat_lng": {
+            "latitude": 40.76189806100756,
+            "longitude": -73.96366678725882
+          },
+          "semantic_type": "TYPE_UNKNOWN"
+        }
+      },
+      {
+        "id": "DESTINATION_ID",
+        "place": {
+          "lat_lng": {
+            "latitude": 40.7453204,
+            "longitude": -73.9816543
+          },
+          "semantic_type": "TYPE_UNKNOWN"
+        }
+      }
+    ],
+    "transition": [{
+      "route": {
+        "travel_mode": "TRANSIT",
+        "transit": {"route": {"leg": [
+          {
+            "mode": "WALKING",
+            "destination": "59 St - Lexington Av Station"
+          },
+          {
+            "mode": "TRANSIT",
+            "destination": "33 St"
+          },
+          {"mode": "WALKING"}
+        ]}}
+      },
+      "origin": {"visit_id": "SOURCE_ID"},
+      "destination": {"visit_id": "DESTINATION_ID"}
+    }]
+  },
+  {
+    "id": "50F3CBD8052493E1",
+    "place_visit": [
+      {"id": ""},
+      {
+        "id": "DESTINATION_ID",
+        "place": {
+          "lat_lng": {
+            "latitude": 40.714196199999996,
+            "longitude": -73.8327114
+          },
+          "semantic_type": "TYPE_UNKNOWN"
+        }
+      }
+    ],
+    "transition": [{
+      "route": {"travel_mode": "DRIVE"},
+      "origin": {"visit_id": ""},
+      "destination": {"visit_id": "DESTINATION_ID"}
+    }]
+  },
+  {
+    "id": "5424A3364483D1CC",
+    "place_visit": [
+      {
+        "id": "SOURCE_ID",
+        "place": {
+          "lat_lng": {
+            "latitude": 40.713022131466396,
+            "longitude": -74.00730525525361
+          },
+          "semantic_type": "TYPE_UNKNOWN"
+        }
+      },
+      {
+        "id": "DESTINATION_ID",
+        "place": {
+          "lat_lng": {
+            "latitude": 40.7232817,
+            "longitude": -73.84483329999999
+          },
+          "semantic_type": "TYPE_UNKNOWN"
+        }
+      }
+    ],
+    "transition": [{
+      "route": {
+        "travel_mode": "TRANSIT",
+        "transit": {"route": {"leg": [
+          {
+            "mode": "WALKING",
+            "destination": "World Trade Center"
+          },
+          {
+            "mode": "TRANSIT",
+            "destination": "Forest Hills - 71 Av"
+          },
+          {"mode": "WALKING"}
+        ]}}
+      },
+      "origin": {"visit_id": "SOURCE_ID"},
+      "destination": {"visit_id": "DESTINATION_ID"}
+    }]
+  },
+  {
+    "id": "5A2821C8C09F4CE5",
+    "place_visit": [
+      {"id": ""},
+      {
+        "id": "DESTINATION_ID",
+        "place": {
+          "lat_lng": {
+            "latitude": 26.8668317,
+            "longitude": 75.58815369999999
+          },
+          "semantic_type": "TYPE_UNKNOWN"
+        }
+      }
+    ],
+    "transition": [{
+      "route": {"travel_mode": "DRIVE"},
+      "origin": {"visit_id": ""},
+      "destination": {"visit_id": "DESTINATION_ID"}
+    }]
+  },
+  {
+    "id": "5B9BC213519339C0",
+    "place_visit": [
+      {
+        "id": "SOURCE_ID",
+        "place": {
+          "lat_lng": {
+            "latitude": 40.74457059858477,
+            "longitude": -73.99290106713651
+          },
+          "semantic_type": "TYPE_UNKNOWN"
+        }
+      },
+      {
+        "id": "DESTINATION_ID",
+        "place": {
+          "lat_lng": {
+            "latitude": 40.7276313,
+            "longitude": -73.8535066
+          },
+          "semantic_type": "TYPE_UNKNOWN"
+        }
+      }
+    ],
+    "transition": [{
+      "route": {
+        "travel_mode": "TRANSIT",
+        "transit": {"route": {"leg": [
+          {
+            "mode": "WALKING",
+            "destination": "23 St"
+          },
+          {
+            "mode": "TRANSIT",
+            "destination": "67 Av"
+          },
+          {"mode": "WALKING"}
+        ]}}
+      },
+      "origin": {"visit_id": "SOURCE_ID"},
+      "destination": {"visit_id": "DESTINATION_ID"}
+    }]
+  }
+]}
