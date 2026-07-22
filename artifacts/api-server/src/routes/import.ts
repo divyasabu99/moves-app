@@ -2,15 +2,6 @@ import { Router } from "express";
 
 const router = Router();
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface ScrapedPlace {
-  name: string;
-  address: string;
-  lat?: number;
-  lng?: number;
-}
-
 // ── NYC helpers ───────────────────────────────────────────────────────────────
 
 const NYC_LAT = [40.4, 40.95] as const;
@@ -44,7 +35,6 @@ const ZIP_TO_NEIGHBORHOOD: Record<string, string> = {
 function neighborhoodFromAddress(address: string): string {
   const zip = address.match(/\b(1\d{4})\b/)?.[1];
   if (zip && ZIP_TO_NEIGHBORHOOD[zip]) return ZIP_TO_NEIGHBORHOOD[zip];
-  // Try named neighbourhood patterns
   for (const [hood, pat] of [
     ["Williamsburg", /williamsburg/i], ["Bushwick", /bushwick/i],
     ["Astoria", /astoria/i], ["Greenpoint", /greenpoint/i],
@@ -82,125 +72,119 @@ function makeId() {
   return "gm_" + Math.random().toString(36).slice(2, 10);
 }
 
-// ── HTML Scrapers ─────────────────────────────────────────────────────────────
+// ── Google Maps Internal API ───────────────────────────────────────────────────
 
-function extractListName(html: string): string {
-  const og = html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/);
-  if (og) return og[1].replace(" - Google Maps", "").trim();
-  const title = html.match(/<title>([^<]+)<\/title>/);
-  if (title) return title[1].replace(" - Google Maps", "").trim();
-  return "Google Maps List";
-}
+const FETCH_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+};
 
-/** Strategy 1 — LD+JSON structured data (cleanest, not always present) */
-function fromLdJson(html: string): ScrapedPlace[] {
-  const places: ScrapedPlace[] = [];
-  const re = /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html))) {
-    try {
-      const d = JSON.parse(m[1]);
-      if (d["@type"] === "ItemList" && Array.isArray(d.itemListElement)) {
-        for (const item of d.itemListElement) {
-          const it = item.item ?? item;
-          if (it?.name) {
-            places.push({
-              name: it.name,
-              address: it.address?.streetAddress ?? it.address ?? "",
-              lat: it.geo?.latitude,
-              lng: it.geo?.longitude,
-            });
-          }
-        }
-      } else if (d?.name && d?.geo) {
-        places.push({ name: d.name, address: d.address?.streetAddress ?? "", lat: d.geo.latitude, lng: d.geo.longitude });
-      }
-    } catch { /* skip */ }
+/**
+ * Resolve a maps.app.goo.gl short link to the canonical placelists URL
+ * by following the HTTP redirect without executing JavaScript.
+ */
+async function resolveShortLink(url: string): Promise<string> {
+  // Use a minimal User-Agent only — a full Accept: text/html header causes
+  // Firebase Dynamic Links to serve an interstitial page (200) instead of
+  // returning the redirect destination (302).
+  const res = await fetch(url, {
+    method: "HEAD",
+    headers: { "User-Agent": "curl/8.1" },
+    redirect: "manual",
+  });
+  const location = res.headers.get("location");
+  if (!location) {
+    return url;
   }
-  return places;
+  return location;
 }
 
-/** Strategy 2 — Parse the large AF_initDataCallback arrays Google embeds */
-function fromAfCallbacks(html: string): ScrapedPlace[] {
-  const places: ScrapedPlace[] = [];
-  const seen = new Set<string>();
+/**
+ * Extract the placelist ID from a Google Maps placelists URL.
+ * Handles:
+ *   https://www.google.com/maps/placelists/list/{id}
+ *   https://www.google.com/maps/@/data=!3m1!4b1!4m3!11m2!2s{id}!4s...
+ */
+function extractListId(url: string): string | null {
+  // Standard placelists URL
+  const m1 = url.match(/\/maps\/placelists\/list\/([A-Za-z0-9_-]+)/);
+  if (m1) return m1[1];
 
-  // Pull out every AF_initDataCallback or _AF_jss payload
-  const scriptRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-  let sm: RegExpExecArray | null;
-  while ((sm = scriptRe.exec(html))) {
-    const block = sm[1];
-    if (!block.includes("AF_initDataCallback") && !block.includes("_AF_jss")) continue;
+  // @/data= encoded URL — list ID is after !2s or !11m2!2s
+  const m2 = url.match(/!2s([A-Za-z0-9_-]{20,})/);
+  if (m2) return m2[1];
 
-    // Find every lat/lng pair that is in NYC
-    const coordRe = /\[(\d{2}\.\d+),(-7[34]\.\d+)\]/g;
-    let cm: RegExpExecArray | null;
-    while ((cm = coordRe.exec(block))) {
-      const lat = parseFloat(cm[1]);
-      const lng = parseFloat(cm[2]);
-      if (!isNYCCoord(lat, lng)) continue;
+  return null;
+}
 
-      // Walk backwards from this position to find the nearest non-trivial string
-      const before = block.slice(0, cm.index);
-      const strings = before.match(/"([^"\\]{3,80})"/g) ?? [];
-      // Walk from the end backwards, skip URLs, hashes, and numeric strings
-      let name = "";
-      for (let i = strings.length - 1; i >= 0; i--) {
-        const s = strings[i].slice(1, -1);
-        if (s.match(/^https?:|^\d+$|^[a-f0-9]{10,}$/i)) continue;
-        if (s.includes("\\u") || s.includes("AF_") || s.startsWith("_")) continue;
-        name = s;
-        break;
-      }
-      if (!name) continue;
-      if (seen.has(name)) continue;
-      seen.add(name);
+interface RawPlace {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
 
-      // Try to find an address string nearby (after the coordinates)
-      const after = block.slice(cm.index, cm.index + 500);
-      const addrM = after.match(/"(\d+[^"]{5,60}(?:Ave|St|Blvd|Dr|Rd|Ln|Pl|Way|Pkwy)[^"]*)"/i);
-      const address = addrM ? addrM[1] : "";
+/**
+ * Fetch a Google Maps saved list using the internal entitylist API.
+ * Returns the list name and an array of raw places.
+ *
+ * The endpoint is:
+ *   GET /maps/preview/entitylist/getlist?authuser=0&hl=en&gl=us&pb=!1m1!1s{listId}!2e2!3e2!4i500
+ *
+ * Response format (after stripping the ")]}'" XSSI prefix):
+ *   data[0][4]  = list name (string)
+ *   data[0][8]  = array of place entries, where each entry:
+ *     p[2]      = place name
+ *     p[1][4]   = address string
+ *     p[1][5]   = [null, null, lat, lng]
+ */
+async function fetchPlaceList(listId: string): Promise<{ listName: string; places: RawPlace[] }> {
+  const pb = `!1m1!1s${encodeURIComponent(listId)}!2e2!3e2!4i500`;
+  const apiUrl = `https://www.google.com/maps/preview/entitylist/getlist?authuser=0&hl=en&gl=us&pb=${pb}`;
+
+  const res = await fetch(apiUrl, {
+    headers: {
+      ...FETCH_HEADERS,
+      Accept: "*/*",
+      Referer: "https://www.google.com/maps/",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Google Maps API returned ${res.status}`);
+  }
+
+  const text = await res.text();
+  // Strip XSSI prefix ")]}'\n"
+  const json = text.replace(/^\)\]\}'\n/, "");
+  const data = JSON.parse(json);
+
+  const header = data[0];
+  const listName: string = header[4] ?? "Google Maps List";
+  const rawEntries: any[] = header[8] ?? [];
+
+  const places: RawPlace[] = [];
+  for (const entry of rawEntries) {
+    try {
+      const name: string = entry[2];
+      const info = entry[1];
+      const address: string = info?.[4] ?? "";
+      const coords = info?.[5];
+      const lat = coords?.[2];
+      const lng = coords?.[3];
+
+      if (!name || typeof lat !== "number" || typeof lng !== "number") continue;
 
       places.push({ name, address, lat, lng });
+    } catch {
+      // skip malformed entries
     }
   }
-  return places;
-}
 
-/** Strategy 3 — Mine raw text for place-like patterns when other strategies fail */
-function fromRawHtml(html: string): ScrapedPlace[] {
-  // Strip tags
-  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-
-  // NYC street address pattern
-  const addrRe = /\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Street|St|Avenue|Ave|Boulevard|Blvd|Place|Pl|Drive|Dr|Road|Rd|Lane|Ln|Way|Parkway|Pkwy|Broadway),?\s+(?:New York|Brooklyn|Queens|Bronx|Staten Island)/g;
-  const places: ScrapedPlace[] = [];
-  const seen = new Set<string>();
-  let m: RegExpExecArray | null;
-  while ((m = addrRe.exec(text))) {
-    const address = m[0].trim();
-    if (seen.has(address)) continue;
-    seen.add(address);
-    places.push({ name: address.split(",")[0], address });
-  }
-  return places;
-}
-
-// ── Coordinate → Place conversion ─────────────────────────────────────────────
-
-function toImportPlace(sp: ScrapedPlace) {
-  const neighborhood = sp.address ? neighborhoodFromAddress(sp.address) : "New York";
-  return {
-    id: makeId(),
-    name: sp.name,
-    category: inferCategory(sp.name),
-    neighborhood,
-    priceLevel: 2,
-    source: "google_maps",
-    vibes: [],
-    address: sp.address || undefined,
-    createdAt: new Date().toISOString(),
-  };
+  return { listName, places };
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -217,7 +201,6 @@ router.post("/import/google-maps-list", async (req, res) => {
     return;
   }
 
-  // Basic URL validation
   let parsed: URL;
   try {
     parsed = new URL(url.trim());
@@ -227,33 +210,49 @@ router.post("/import/google-maps-list", async (req, res) => {
   }
 
   const allowed = ["maps.app.goo.gl", "www.google.com", "google.com", "maps.google.com"];
-  if (!allowed.some(h => parsed.hostname.endsWith(h))) {
+  if (!allowed.some(h => parsed.hostname === h || parsed.hostname.endsWith("." + h))) {
     res.status(400).json({ error: "URL must be a Google Maps link" });
     return;
   }
 
   try {
-    const html = await fetchPage(parsed.href);
-    const listName = extractListName(html);
+    // Step 1: resolve short links to get the canonical placelists URL
+    let canonicalUrl = url.trim();
+    if (parsed.hostname === "maps.app.goo.gl") {
+      canonicalUrl = await resolveShortLink(canonicalUrl);
+    }
 
-    // Try strategies in order
-    let raw = fromLdJson(html);
-    if (raw.length === 0) raw = fromAfCallbacks(html);
-    if (raw.length === 0) raw = fromRawHtml(html);
+    // Step 2: extract the list ID
+    const listId = extractListId(canonicalUrl);
+    if (!listId) {
+      res.status(400).json({
+        error:
+          "Could not find a saved list in that URL. Make sure you are sharing a saved list, not a single place.",
+      });
+      return;
+    }
 
-    // Filter to NYC and shape into Place objects
-    const nycPlaces = raw.filter(p =>
-      p.lat !== undefined
-        ? isNYCCoord(p.lat!, p.lng!)
-        : p.address
-          ? /\b(10\d{3}|11[012]\d{2})\b/.test(p.address) || /new york|brooklyn|queens|bronx/i.test(p.address)
-          : false
-    );
+    // Step 3: fetch place data from the internal API
+    const { listName, places: raw } = await fetchPlaceList(listId);
 
+    // Step 4: filter to NYC
+    const nycPlaces = raw.filter(p => isNYCCoord(p.lat, p.lng));
     const skipped = raw.length - nycPlaces.length;
-    const places = nycPlaces.map(toImportPlace);
 
-    // Deduplicate by name
+    // Step 5: shape into Place objects
+    const places = nycPlaces.map(p => ({
+      id: makeId(),
+      name: p.name,
+      category: inferCategory(p.name),
+      neighborhood: p.address ? neighborhoodFromAddress(p.address) : "New York",
+      priceLevel: 2,
+      source: "google_maps",
+      vibes: [],
+      address: p.address || undefined,
+      createdAt: new Date().toISOString(),
+    }));
+
+    // Step 6: deduplicate by name
     const seen = new Set<string>();
     const deduped = places.filter(p => {
       const k = p.name.toLowerCase();
@@ -267,21 +266,5 @@ router.post("/import/google-maps-list", async (req, res) => {
     res.status(502).json({ error: err?.message ?? "Failed to fetch the Google Maps list" });
   }
 });
-
-async function fetchPage(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Cache-Control": "no-cache",
-    },
-    // @ts-ignore – Node 18+ built-in fetch supports redirect
-    redirect: "follow",
-  });
-  if (!res.ok) throw new Error(`Google returned ${res.status}`);
-  return res.text();
-}
 
 export default router;
