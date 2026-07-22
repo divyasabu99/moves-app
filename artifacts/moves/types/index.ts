@@ -1,5 +1,5 @@
 export type PlaceCategory = 'restaurant' | 'bar' | 'cafe' | 'museum' | 'activity' | 'park' | 'shop';
-export type PlaceSource = 'google_maps' | 'beli' | 'yelp' | 'manual';
+export type PlaceSource = 'google_maps' | 'beli' | 'yelp' | 'manual' | 'ai_suggested';
 export type BudgetLevel = 1 | 2 | 3 | 4;
 export type MoveStatus = 'saved' | 'done';
 
@@ -57,6 +57,7 @@ export interface PlanInput {
   partySize: number;
   budgetLevel: BudgetLevel[];
   neighborhood: string[];
+  savedOnly?: boolean;
 }
 
 export interface GeneratedItinerary {

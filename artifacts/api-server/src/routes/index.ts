@@ -5,6 +5,7 @@ import usersRouter from "./users.js";
 import groupsRouter from "./groups.js";
 import importRouter from "./import.js";
 import lookupRouter from "./lookup.js";
+import suggestRouter from "./suggest.js";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use(usersRouter);
 router.use(groupsRouter);
 router.use(importRouter);
 router.use(lookupRouter);
+router.use(suggestRouter);
 
 export default router;

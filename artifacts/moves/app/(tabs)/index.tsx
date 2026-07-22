@@ -84,6 +84,9 @@ export default function PlanScreen() {
   const [showHoodSuggestions, setShowHoodSuggestions] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<OpenKey>(null);
 
+  // Suggest new places toggle
+  const [suggestNew, setSuggestNew] = useState(false);
+
   // Chat state
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -138,6 +141,7 @@ export default function PlanScreen() {
     vibe, date: selectedDate, startTime, endTime,
     partySize, budgetLevel: budgetLevels.length ? budgetLevels : [1, 2, 3, 4],
     neighborhood: neighborhoods,
+    savedOnly: !suggestNew,
   });
 
   const handleGenerate = async () => {
@@ -436,6 +440,30 @@ export default function PlanScreen() {
         backgroundColor: colors.background,
         borderTopColor: colors.border,
       }]}>
+        {/* Suggest new places toggle */}
+        <TouchableOpacity
+          onPress={() => { setSuggestNew(v => !v); Haptics.selectionAsync(); }}
+          activeOpacity={0.7}
+          style={styles.checkboxRow}
+        >
+          <View style={[styles.checkbox, {
+            backgroundColor: suggestNew ? colors.primary : 'transparent',
+            borderColor: suggestNew ? colors.primary : colors.mutedForeground,
+          }]}>
+            {suggestNew && <Ionicons name="checkmark" size={13} color={colors.primaryForeground} />}
+          </View>
+          <View style={styles.checkboxText}>
+            <Text style={[styles.checkboxLabel, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]}>
+              Suggest new places
+            </Text>
+            <Text style={[styles.checkboxSub, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              {suggestNew
+                ? 'AI will recommend spots alongside your saved ones'
+                : 'Only generate moves from your saved places'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         <TouchableOpacity
           onPress={mode === 'chat' ? handleChatSubmit : handleGenerate}
           disabled={generating || chatLoading || (mode === 'chat' && !chatInput.trim())}
@@ -526,6 +554,17 @@ const styles = StyleSheet.create({
   chatExamples: { gap: 8, marginTop: 4 },
   exampleChip: { borderRadius: 12, borderWidth: 1, padding: 12 },
   exampleText: { fontSize: 13, lineHeight: 18 },
+  // Suggest checkbox
+  checkboxRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12,
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxText: { flex: 1, gap: 2 },
+  checkboxLabel: { fontSize: 14 },
+  checkboxSub: { fontSize: 12, lineHeight: 16 },
   // Footer
   footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1 },
   generateBtn: {

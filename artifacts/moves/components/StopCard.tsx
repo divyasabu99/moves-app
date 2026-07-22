@@ -60,12 +60,20 @@ export function StopCard({ stop, index, isLast }: StopCardProps) {
               <Ionicons name={iconName as any} size={16} color={colors.primary} />
             </View>
             <View style={styles.cardInfo}>
-              <Text
-                style={[styles.placeName, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}
-                numberOfLines={1}
-              >
-                {stop.place.name}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text
+                  style={[styles.placeName, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}
+                  numberOfLines={1}
+                >
+                  {stop.place.name}
+                </Text>
+                {stop.place.source === 'ai_suggested' && (
+                  <View style={[styles.newBadge, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}>
+                    <Ionicons name="sparkles" size={9} color={colors.primary} />
+                    <Text style={[styles.newBadgeText, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>New</Text>
+                  </View>
+                )}
+              </View>
               <Text style={[styles.placeCategory, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
                 {stop.place.neighborhood} · {CATEGORY_LABELS[stop.place.category]}
               </Text>
@@ -170,8 +178,27 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
+  },
   placeName: {
     fontSize: 14,
+    flexShrink: 1,
+  },
+  newBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  newBadgeText: {
+    fontSize: 10,
   },
   placeCategory: {
     fontSize: 11,

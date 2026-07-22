@@ -81,7 +81,7 @@ export const VIBES = [
 
 export type Vibe = (typeof VIBES)[number];
 
-const VIBE_SEQUENCES: Record<string, PlaceCategory[][]> = {
+export const VIBE_SEQUENCES: Record<string, PlaceCategory[][]> = {
   'Dinner & Drinks': [
     ['restaurant', 'bar'],
     ['cafe', 'restaurant', 'bar'],

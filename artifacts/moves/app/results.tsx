@@ -12,8 +12,8 @@ import { StopCard } from '@/components/StopCard';
 import { usePlaces } from '@/context/PlacesContext';
 import { useMoves } from '@/context/MovesContext';
 import { useUser } from '@/context/UserContext';
-import { generateItineraries } from '@/lib/itinerary';
-import { PlanInput, GeneratedItinerary, Move, Group } from '@/types';
+import { generateItineraries, VIBE_SEQUENCES } from '@/lib/itinerary';
+import { PlanInput, GeneratedItinerary, Move, Group, Place } from '@/types';
 
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -222,15 +222,43 @@ export default function ResultsScreen() {
   // Which card is currently open in the share sheet
   const [shareTarget, setShareTarget] = useState<Move | null>(null);
 
-  const { plan, itineraries } = useMemo(() => {
-    if (!planParam) return { plan: null, itineraries: [] as GeneratedItinerary[] };
-    try {
-      const parsed = JSON.parse(planParam) as PlanInput;
-      return { plan: parsed, itineraries: generateItineraries(places, parsed) };
-    } catch {
-      return { plan: null, itineraries: [] as GeneratedItinerary[] };
-    }
-  }, [planParam, places]);
+  const plan = useMemo<PlanInput | null>(() => {
+    if (!planParam) return null;
+    try { return JSON.parse(planParam) as PlanInput; }
+    catch { return null; }
+  }, [planParam]);
+
+  const [aiSuggestions, setAiSuggestions] = useState<Place[]>([]);
+  const [loadingAI, setLoadingAI] = useState(false);
+
+  const itineraries = useMemo(() => {
+    if (!plan) return [] as GeneratedItinerary[];
+    return generateItineraries([...places, ...aiSuggestions], plan);
+  }, [plan, places, aiSuggestions]);
+
+  // Fetch AI-suggested places when "suggest new" is on
+  useEffect(() => {
+    if (!plan || plan.savedOnly !== false) return;
+    const categories = [...new Set((VIBE_SEQUENCES[plan.vibe] ?? VIBE_SEQUENCES['Dinner & Drinks']).flat())];
+    const excludeNames = places.map(p => p.name);
+    setLoadingAI(true);
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    fetch(`https://${domain}/api/suggest-places`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        vibe: plan.vibe,
+        neighborhoods: plan.neighborhood,
+        budgetLevel: plan.budgetLevel,
+        categories,
+        excludeNames,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data.places)) setAiSuggestions(data.places); })
+      .catch(() => {})
+      .finally(() => setLoadingAI(false));
+  }, [plan?.vibe, plan?.savedOnly]);
 
   const handleSave = (itinerary: GeneratedItinerary, index: number) => {
     if (!plan || savedMoves.has(index)) return;
