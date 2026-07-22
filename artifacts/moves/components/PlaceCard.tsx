@@ -34,19 +34,28 @@ export function PlaceCard({ place, onPress, onLongPress }: PlaceCardProps) {
         >
           {place.name}
         </Text>
-        <View style={styles.meta}>
-          <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            {place.neighborhood}
+        {place.vibeDescription ? (
+          <Text
+            style={[styles.vibeDescription, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}
+            numberOfLines={1}
+          >
+            {place.vibeDescription}
           </Text>
-          <View style={[styles.dot, { backgroundColor: colors.border }]} />
-          <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            {CATEGORY_LABELS[place.category]}
-          </Text>
-          <View style={[styles.dot, { backgroundColor: colors.border }]} />
-          <Text style={[styles.budget, { color: colors.accent, fontFamily: 'Inter_600SemiBold' }]}>
-            {BUDGET_LABELS[place.priceLevel]}
-          </Text>
-        </View>
+        ) : (
+          <View style={styles.meta}>
+            <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              {place.neighborhood}
+            </Text>
+            <View style={[styles.dot, { backgroundColor: colors.border }]} />
+            <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              {CATEGORY_LABELS[place.category]}
+            </Text>
+            <View style={[styles.dot, { backgroundColor: colors.border }]} />
+            <Text style={[styles.budget, { color: colors.accent, fontFamily: 'Inter_600SemiBold' }]}>
+              {BUDGET_LABELS[place.priceLevel]}
+            </Text>
+          </View>
+        )}
       </View>
       <View style={[styles.sourceBadge, { backgroundColor: colors.muted }]}>
         <Text style={[styles.sourceText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
@@ -96,6 +105,10 @@ const styles = StyleSheet.create({
   },
   budget: {
     fontSize: 12,
+  },
+  vibeDescription: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   sourceBadge: {
     paddingHorizontal: 8,

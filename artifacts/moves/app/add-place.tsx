@@ -30,6 +30,7 @@ interface Suggestion {
   priceLevel: BudgetLevel;
   address: string;
   vibes: string[];
+  vibeDescription?: string;
 }
 
 export default function AddPlaceScreen() {
@@ -42,6 +43,7 @@ export default function AddPlaceScreen() {
   const [neighborhood, setNeighborhood] = useState('');
   const [priceLevel, setPriceLevel] = useState<BudgetLevel>(2);
   const [address, setAddress] = useState('');
+  const [vibeDescription, setVibeDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
 
@@ -114,6 +116,7 @@ export default function AddPlaceScreen() {
     setNeighborhood(s.neighborhood ?? '');
     setPriceLevel(s.priceLevel ?? 2);
     setAddress(s.address ?? '');
+    setVibeDescription(s.vibeDescription ?? '');
     setSuggestions([]);
     setAutoFilled(true);
     lastQuery.current = s.name;
@@ -130,6 +133,7 @@ export default function AddPlaceScreen() {
       priceLevel,
       source: 'manual',
       vibes: [],
+      vibeDescription: vibeDescription.trim() || undefined,
       address: address.trim() || undefined,
       notes: notes.trim() || undefined,
     });

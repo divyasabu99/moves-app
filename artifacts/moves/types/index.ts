@@ -11,6 +11,7 @@ export interface Place {
   priceLevel: BudgetLevel;
   source: PlaceSource;
   vibes: string[];
+  vibeDescription?: string;
   rating?: number;
   address?: string;
   notes?: string;

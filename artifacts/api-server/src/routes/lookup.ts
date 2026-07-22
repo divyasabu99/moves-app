@@ -47,6 +47,7 @@ Rules:
 - Set found=false if you don't recognise this as a specific real NYC place.
 - priceLevel: 1=$, 2=$$, 3=$$$, 4=$$$$
 - vibes: up to 3 short descriptors like "cozy", "date night", "trendy", "loud", "outdoor", "late night", "brunch spot"
+- vibeDescription: a single punchy sentence capturing the feel, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge"
 - If found=false still try to fill category/neighborhood/priceLevel with reasonable guesses based on the name.`,
           },
           {
@@ -73,6 +74,7 @@ Rules:
       priceLevel: parsed.priceLevel ?? 2,
       address: parsed.address ?? "",
       vibes: Array.isArray(parsed.vibes) ? parsed.vibes.slice(0, 3) : [],
+      vibeDescription: parsed.vibeDescription ?? "",
     });
   } catch (err: any) {
     res.status(502).json({ error: err?.message ?? "Lookup failed" });
@@ -116,6 +118,7 @@ Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood",
 - category: "restaurant"|"bar"|"cafe"|"museum"|"park"|"shop"|"activity"
 - priceLevel: 1-4
 - vibes: array of up to 3 short strings
+- vibeDescription: a single punchy sentence capturing the feel, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge"
 - Only include places you are confident exist in NYC
 - If fewer than 5 match, return fewer — never invent places`,
           },
@@ -130,7 +133,11 @@ Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood",
     if (!response.ok) throw new Error(`OpenAI ${response.status}`);
     const data = await response.json() as any;
     const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
-    res.json({ suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [] });
+    // Ensure each suggestion has vibeDescription
+    const suggestions = Array.isArray(parsed.suggestions)
+      ? parsed.suggestions.map((s: any) => ({ ...s, vibeDescription: s.vibeDescription ?? "" }))
+      : [];
+    res.json({ suggestions });
   } catch (err: any) {
     res.json({ suggestions: [] }); // fail silently — dropdown just stays empty
   }
