@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform,
+  TextInput, Platform, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -9,11 +9,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { usePlaces } from '@/context/PlacesContext';
-import { PlaceCategory, PlaceSource, BudgetLevel } from '@/types';
-import { CATEGORY_LABELS, SOURCE_LABELS, NEIGHBORHOODS } from '@/lib/itinerary';
+import { PlaceCategory, BudgetLevel } from '@/types';
+import { CATEGORY_LABELS, NEIGHBORHOODS } from '@/lib/itinerary';
+
+const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 const CATEGORIES: PlaceCategory[] = ['restaurant', 'bar', 'cafe', 'museum', 'activity', 'park', 'shop'];
-const SOURCES: PlaceSource[] = ['google_maps', 'beli', 'yelp', 'manual'];
 const BUDGET_OPTIONS: { level: BudgetLevel; label: string }[] = [
   { level: 1, label: '$' },
   { level: 2, label: '$$' },
@@ -30,9 +31,15 @@ export default function AddPlaceScreen() {
   const [category, setCategory] = useState<PlaceCategory>('restaurant');
   const [neighborhood, setNeighborhood] = useState('');
   const [priceLevel, setPriceLevel] = useState<BudgetLevel>(2);
-  const [source, setSource] = useState<PlaceSource>('google_maps');
+  const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Lookup state
+  const [looking, setLooking] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLookedUp = useRef('');
 
   const canSave = name.trim().length > 0 && neighborhood.trim().length > 0;
   const filteredNeighborhoods = neighborhood.length > 1
@@ -42,15 +49,63 @@ export default function AddPlaceScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 32);
 
+  // ── AI debounce lookup ────────────────────────────────────────────────────
+  const doLookup = useCallback(async (query: string) => {
+    if (lastLookedUp.current === query) return;
+    lastLookedUp.current = query;
+    setLooking(true);
+    setAutoFilled(false);
+    try {
+      const res = await fetch(`${BASE_URL()}/lookup-place`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: query }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.category)     setCategory(data.category);
+      if (data.neighborhood) setNeighborhood(data.neighborhood);
+      if (data.priceLevel)   setPriceLevel(data.priceLevel);
+      if (data.address)      setAddress(data.address);
+      setAutoFilled(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch { /* silent — user can fill in manually */ } finally {
+      setLooking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const trimmed = name.trim();
+    // Reset auto-fill badge if name changed significantly
+    if (autoFilled && trimmed !== lastLookedUp.current) setAutoFilled(false);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (trimmed.length < 3) return;
+
+    debounceRef.current = setTimeout(() => doLookup(trimmed), 900);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [name, doLookup, autoFilled]);
+
+  // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = () => {
     if (!canSave) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addPlace({ name: name.trim(), category, neighborhood: neighborhood.trim(), priceLevel, source, vibes: [], notes: notes.trim() || undefined });
+    addPlace({
+      name: name.trim(),
+      category,
+      neighborhood: neighborhood.trim(),
+      priceLevel,
+      source: 'manual',
+      vibes: [],
+      address: address.trim() || undefined,
+      notes: notes.trim() || undefined,
+    });
     router.back();
   };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      {/* Header */}
       <View style={[styles.header, { paddingTop: topPad, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} activeOpacity={0.7}>
           <Ionicons name="close" size={22} color={colors.foreground} />
@@ -62,9 +117,7 @@ export default function AddPlaceScreen() {
           <Text style={[styles.saveText, {
             color: canSave ? colors.primary : colors.mutedForeground,
             fontFamily: 'Inter_600SemiBold',
-          }]}>
-            Save
-          </Text>
+          }]}>Save</Text>
         </TouchableOpacity>
       </View>
 
@@ -73,9 +126,29 @@ export default function AddPlaceScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Name */}
+        {/* Name + lookup indicator */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>NAME</Text>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
+              NAME
+            </Text>
+            {looking && (
+              <View style={styles.lookingBadge}>
+                <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.7 }] }} />
+                <Text style={[styles.lookingText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                  Looking up…
+                </Text>
+              </View>
+            )}
+            {autoFilled && !looking && (
+              <View style={[styles.lookingBadge, { backgroundColor: colors.primary + '18' }]}>
+                <Ionicons name="sparkles" size={11} color={colors.primary} />
+                <Text style={[styles.lookingText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                  Auto-filled
+                </Text>
+              </View>
+            )}
+          </View>
           <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
               value={name}
@@ -84,6 +157,7 @@ export default function AddPlaceScreen() {
               placeholderTextColor={colors.mutedForeground}
               style={[styles.textInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
               autoFocus
+              returnKeyType="done"
             />
           </View>
         </View>
@@ -179,46 +253,28 @@ export default function AddPlaceScreen() {
           </View>
         </View>
 
-        {/* Source */}
+        {/* Address (shown when auto-filled or manually entered) */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
-            SAVED FROM
-          </Text>
-          <View style={styles.sourceGrid}>
-            {SOURCES.map(src => {
-              const active = src === source;
-              return (
-                <TouchableOpacity
-                  key={src}
-                  onPress={() => { setSource(src); Haptics.selectionAsync(); }}
-                  activeOpacity={0.75}
-                  style={[styles.sourceChip, {
-                    backgroundColor: active ? colors.primary : colors.card,
-                    borderColor: active ? colors.primary : colors.border,
-                  }]}
-                >
-                  <Text style={[styles.sourceText, {
-                    color: active ? colors.primaryForeground : colors.foreground,
-                    fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular',
-                  }]}>
-                    {SOURCE_LABELS[src]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>ADDRESS <Text style={{ fontWeight: '400', letterSpacing: 0 }}>(optional)</Text></Text>
+          <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TextInput
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Street address"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.textInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
+            />
           </View>
         </View>
 
         {/* Notes */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
-            NOTES <Text style={{ color: colors.border }}>· optional</Text>
-          </Text>
+          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>NOTES <Text style={{ fontWeight: '400', letterSpacing: 0 }}>(optional)</Text></Text>
           <View style={[styles.inputWrap, styles.notesWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
               value={notes}
               onChangeText={setNotes}
-              placeholder="Anything to remember about this place..."
+              placeholder="What do you love about this spot?"
               placeholderTextColor={colors.mutedForeground}
               style={[styles.textInput, styles.notesInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
               multiline
@@ -241,7 +297,13 @@ const styles = StyleSheet.create({
   saveText: { fontSize: 16 },
   content: { padding: 20 },
   field: { marginBottom: 22, gap: 10 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   label: { fontSize: 11, letterSpacing: 1.5 },
+  lookingBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100,
+  },
+  lookingText: { fontSize: 11 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 13,
@@ -260,12 +322,6 @@ const styles = StyleSheet.create({
     paddingVertical: 11, borderRadius: 12, borderWidth: 1, alignItems: 'center',
   },
   budgetText: { fontSize: 15 },
-  sourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  sourceChip: {
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderRadius: 100, borderWidth: 1,
-  },
-  sourceText: { fontSize: 14 },
   suggestions: { borderRadius: 12, borderWidth: 1, overflow: 'hidden', marginTop: -4 },
   suggestion: { paddingHorizontal: 14, paddingVertical: 12 },
   suggestionText: { fontSize: 14 },
