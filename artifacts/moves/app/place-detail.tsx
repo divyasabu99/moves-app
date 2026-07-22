@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -22,11 +23,26 @@ export default function PlaceDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { places, removePlace } = usePlaces();
+  const { places, removePlace, loading } = usePlaces();
 
   const place = places.find(p => p.id === id);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 32);
+
+  if (loading) {
+    return (
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: topPad, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      </View>
+    );
+  }
 
   if (!place) {
     return (
@@ -52,19 +68,14 @@ export default function PlaceDetailScreen() {
       removePlace(place.id);
       router.back();
     };
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Remove "${place.name}" from your places?`)) doDelete();
-    } else {
-      const { Alert } = require('react-native');
-      Alert.alert(
-        'Remove place',
-        `Remove "${place.name}" from your collection?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Remove', style: 'destructive', onPress: doDelete },
-        ]
-      );
-    }
+    Alert.alert(
+      'Remove place',
+      `Remove "${place.name}" from your collection?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: doDelete },
+      ]
+    );
   };
 
   return (
