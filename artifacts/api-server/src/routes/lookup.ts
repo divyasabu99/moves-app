@@ -40,15 +40,16 @@ Respond ONLY with valid JSON matching this shape exactly:
   "neighborhood": "<NYC neighborhood name, e.g. West Village>",
   "priceLevel": 1 | 2 | 3 | 4,
   "address": "<full street address or empty string>",
-  "vibes": ["<vibe1>", "<vibe2>", "<vibe3>"]
+  "vibes": ["<vibe1>", "<vibe2>", "<vibe3>"],
+  "vibeDescription": "<single punchy sentence capturing the feel>"
 }
 
 Rules:
 - Set found=false if you don't recognise this as a specific real NYC place.
 - priceLevel: 1=$, 2=$$, 3=$$$, 4=$$$$
 - vibes: up to 3 short descriptors like "cozy", "date night", "trendy", "loud", "outdoor", "late night", "brunch spot"
-- vibeDescription: a single punchy sentence capturing the feel, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge"
-- If found=false still try to fill category/neighborhood/priceLevel with reasonable guesses based on the name.`,
+- vibeDescription: a single punchy sentence, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge" — always include this, never leave it empty
+- If found=false still try to fill all fields with reasonable guesses based on the name.`,
           },
           {
             role: "user",
