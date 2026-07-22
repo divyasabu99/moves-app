@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { useColors } from '@/hooks/useColors';
 import { usePlaces } from '@/context/PlacesContext';
 import { PlaceCategory, BudgetLevel } from '@/types';
@@ -22,6 +23,15 @@ const BUDGET_OPTIONS: { level: BudgetLevel; label: string }[] = [
   { level: 4, label: '$$$$' },
 ];
 
+interface Suggestion {
+  name: string;
+  category: PlaceCategory;
+  neighborhood: string;
+  priceLevel: BudgetLevel;
+  address: string;
+  vibes: string[];
+}
+
 export default function AddPlaceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -33,13 +43,16 @@ export default function AddPlaceScreen() {
   const [priceLevel, setPriceLevel] = useState<BudgetLevel>(2);
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
 
-  // Lookup state
-  const [looking, setLooking] = useState(false);
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastLookedUp = useRef('');
+  const lastQuery = useRef('');
 
   const canSave = name.trim().length > 0 && neighborhood.trim().length > 0;
   const filteredNeighborhoods = neighborhood.length > 1
@@ -49,42 +62,62 @@ export default function AddPlaceScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 32);
 
-  // ── AI debounce lookup ────────────────────────────────────────────────────
-  const doLookup = useCallback(async (query: string) => {
-    if (lastLookedUp.current === query) return;
-    lastLookedUp.current = query;
-    setLooking(true);
-    setAutoFilled(false);
+  // ── Get user location once on mount ──────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      } catch { /* location optional */ }
+    })();
+  }, []);
+
+  // ── Autocomplete debounce ─────────────────────────────────────────────────
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (lastQuery.current === query) return;
+    lastQuery.current = query;
+    setLoadingSuggestions(true);
     try {
-      const res = await fetch(`${BASE_URL()}/lookup-place`, {
+      const res = await fetch(`${BASE_URL()}/places/autocomplete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: query }),
+        body: JSON.stringify({ query, lat: coords?.lat, lng: coords?.lng }),
       });
-      if (!res.ok) return;
       const data = await res.json();
-      if (data.category)     setCategory(data.category);
-      if (data.neighborhood) setNeighborhood(data.neighborhood);
-      if (data.priceLevel)   setPriceLevel(data.priceLevel);
-      if (data.address)      setAddress(data.address);
-      setAutoFilled(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch { /* silent — user can fill in manually */ } finally {
-      setLooking(false);
+      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
     }
-  }, []);
+  }, [coords]);
 
   useEffect(() => {
     const trimmed = name.trim();
-    // Reset auto-fill badge if name changed significantly
-    if (autoFilled && trimmed !== lastLookedUp.current) setAutoFilled(false);
+    // Clear suggestions if name was wiped or selected
+    if (trimmed.length < 2) { setSuggestions([]); lastQuery.current = ''; return; }
+    // Don't re-fetch if auto-filled and name unchanged
+    if (autoFilled) return;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (trimmed.length < 3) return;
-
-    debounceRef.current = setTimeout(() => doLookup(trimmed), 900);
+    debounceRef.current = setTimeout(() => fetchSuggestions(trimmed), 400);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [name, doLookup, autoFilled]);
+  }, [name, fetchSuggestions, autoFilled]);
+
+  // ── Apply a suggestion ────────────────────────────────────────────────────
+  const applySuggestion = (s: Suggestion) => {
+    Haptics.selectionAsync();
+    setName(s.name);
+    setCategory(s.category ?? 'restaurant');
+    setNeighborhood(s.neighborhood ?? '');
+    setPriceLevel(s.priceLevel ?? 2);
+    setAddress(s.address ?? '');
+    setSuggestions([]);
+    setAutoFilled(true);
+    lastQuery.current = s.name;
+  };
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = () => {
@@ -126,40 +159,73 @@ export default function AddPlaceScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Name + lookup indicator */}
+        {/* Name + autocomplete */}
         <View style={styles.field}>
           <View style={styles.labelRow}>
             <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
               NAME
             </Text>
-            {looking && (
-              <View style={styles.lookingBadge}>
-                <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.7 }] }} />
-                <Text style={[styles.lookingText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
-                  Looking up…
+            {loadingSuggestions && (
+              <View style={styles.badge}>
+                <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.65 }] }} />
+                <Text style={[styles.badgeText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                  Searching…
                 </Text>
               </View>
             )}
-            {autoFilled && !looking && (
-              <View style={[styles.lookingBadge, { backgroundColor: colors.primary + '18' }]}>
+            {autoFilled && !loadingSuggestions && (
+              <View style={[styles.badge, { backgroundColor: colors.primary + '18' }]}>
                 <Ionicons name="sparkles" size={11} color={colors.primary} />
-                <Text style={[styles.lookingText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                <Text style={[styles.badgeText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
                   Auto-filled
                 </Text>
               </View>
             )}
           </View>
+
           <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
               value={name}
-              onChangeText={setName}
-              placeholder="e.g. Via Carota"
+              onChangeText={t => { setName(t); if (autoFilled) setAutoFilled(false); }}
+              placeholder="Start typing a place name…"
               placeholderTextColor={colors.mutedForeground}
               style={[styles.textInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
               autoFocus
               returnKeyType="done"
             />
           </View>
+
+          {/* Autocomplete dropdown */}
+          {suggestions.length > 0 && (
+            <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {suggestions.map((s, i) => (
+                <TouchableOpacity
+                  key={`${s.name}-${i}`}
+                  onPress={() => applySuggestion(s)}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.dropdownRow,
+                    { borderBottomColor: colors.border },
+                    i === suggestions.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <View style={[styles.dropdownIcon, { backgroundColor: colors.muted }]}>
+                    <Ionicons name="location-outline" size={14} color={colors.primary} />
+                  </View>
+                  <View style={styles.dropdownInfo}>
+                    <Text style={[styles.dropdownName, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]} numberOfLines={1}>
+                      {s.name}
+                    </Text>
+                    <Text style={[styles.dropdownMeta, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
+                      {s.neighborhood} · {CATEGORY_LABELS[s.category] ?? s.category}
+                      {s.address ? ` · ${s.address}` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={14} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Category */}
@@ -197,25 +263,26 @@ export default function AddPlaceScreen() {
             <Ionicons name="location-outline" size={16} color={colors.mutedForeground} />
             <TextInput
               value={neighborhood}
-              onChangeText={t => { setNeighborhood(t); setShowSuggestions(true); }}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onChangeText={t => { setNeighborhood(t); setShowNeighborhoodSuggestions(true); }}
+              onBlur={() => setTimeout(() => setShowNeighborhoodSuggestions(false), 150)}
               placeholder="e.g. West Village"
               placeholderTextColor={colors.mutedForeground}
               style={[styles.textInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
             />
           </View>
-          {showSuggestions && filteredNeighborhoods.length > 0 && (
-            <View style={[styles.suggestions, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {showNeighborhoodSuggestions && filteredNeighborhoods.length > 0 && (
+            <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {filteredNeighborhoods.map((n, i) => (
                 <TouchableOpacity
                   key={n}
-                  onPress={() => { setNeighborhood(n); setShowSuggestions(false); }}
-                  style={[styles.suggestion, {
-                    borderBottomColor: colors.border,
-                    borderBottomWidth: i < filteredNeighborhoods.length - 1 ? 1 : 0,
-                  }]}
+                  onPress={() => { setNeighborhood(n); setShowNeighborhoodSuggestions(false); }}
+                  style={[
+                    styles.dropdownRow,
+                    { borderBottomColor: colors.border },
+                    i === filteredNeighborhoods.length - 1 && { borderBottomWidth: 0 },
+                  ]}
                 >
-                  <Text style={[styles.suggestionText, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}>
+                  <Text style={[styles.dropdownName, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}>
                     {n}
                   </Text>
                 </TouchableOpacity>
@@ -253,9 +320,11 @@ export default function AddPlaceScreen() {
           </View>
         </View>
 
-        {/* Address (shown when auto-filled or manually entered) */}
+        {/* Address */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>ADDRESS <Text style={{ fontWeight: '400', letterSpacing: 0 }}>(optional)</Text></Text>
+          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
+            ADDRESS <Text style={{ fontWeight: '400', letterSpacing: 0 }}>(optional)</Text>
+          </Text>
           <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
               value={address}
@@ -269,7 +338,9 @@ export default function AddPlaceScreen() {
 
         {/* Notes */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>NOTES <Text style={{ fontWeight: '400', letterSpacing: 0 }}>(optional)</Text></Text>
+          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
+            NOTES <Text style={{ fontWeight: '400', letterSpacing: 0 }}>(optional)</Text>
+          </Text>
           <View style={[styles.inputWrap, styles.notesWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
               value={notes}
@@ -296,14 +367,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17 },
   saveText: { fontSize: 16 },
   content: { padding: 20 },
-  field: { marginBottom: 22, gap: 10 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  field: { marginBottom: 22 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   label: { fontSize: 11, letterSpacing: 1.5 },
-  lookingBadge: {
+  badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100,
   },
-  lookingText: { fontSize: 11 },
+  badgeText: { fontSize: 11 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 13,
@@ -311,18 +382,31 @@ const styles = StyleSheet.create({
   textInput: { flex: 1, fontSize: 15, padding: 0 },
   notesWrap: { alignItems: 'flex-start', paddingVertical: 10 },
   notesInput: { minHeight: 70, textAlignVertical: 'top' },
+  // Autocomplete dropdown
+  dropdown: {
+    marginTop: 4, borderRadius: 12, borderWidth: 1, overflow: 'hidden',
+  },
+  dropdownRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  dropdownIcon: {
+    width: 28, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
+  },
+  dropdownInfo: { flex: 1 },
+  dropdownName: { fontSize: 14 },
+  dropdownMeta: { fontSize: 12, marginTop: 1 },
+  // Category chips
   chipRow: { flexDirection: 'row', gap: 8 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 10,
     borderRadius: 100, borderWidth: 1,
   },
   chipText: { fontSize: 13 },
-  budgetRow: { flexDirection: 'row', gap: 8 },
+  // Budget
+  budgetRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   budgetChip: {
     paddingVertical: 11, borderRadius: 12, borderWidth: 1, alignItems: 'center',
   },
   budgetText: { fontSize: 15 },
-  suggestions: { borderRadius: 12, borderWidth: 1, overflow: 'hidden', marginTop: -4 },
-  suggestion: { paddingHorizontal: 14, paddingVertical: 12 },
-  suggestionText: { fontSize: 14 },
 });

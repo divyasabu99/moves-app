@@ -79,4 +79,61 @@ Rules:
   }
 });
 
+
+/**
+ * POST /api/places/autocomplete
+ * Body: { query: string, lat?: number, lng?: number }
+ * Returns up to 5 real NYC place suggestions matching the partial name.
+ */
+router.post("/places/autocomplete", async (req, res) => {
+  const { query, lat, lng } = req.body as { query?: string; lat?: number; lng?: number };
+  if (!query || typeof query !== "string" || query.trim().length < 2) {
+    res.json({ suggestions: [] });
+    return;
+  }
+
+  // Build a neighbourhood hint from coordinates when available
+  let locationHint = "in NYC";
+  if (lat && lng) {
+    locationHint = `near coordinates ${lat.toFixed(4)}, ${lng.toFixed(4)} in NYC`;
+  }
+
+  try {
+    const response = await fetch(`${OPENAI_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-5.6-luna",
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `You are an NYC places expert. Given a partial place name, return up to 5 real NYC places that match.
+Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood", "priceLevel", "address", "vibes" }, ... ] }
+- category: "restaurant"|"bar"|"cafe"|"museum"|"park"|"shop"|"activity"
+- priceLevel: 1-4
+- vibes: array of up to 3 short strings
+- Only include places you are confident exist in NYC
+- If fewer than 5 match, return fewer — never invent places`,
+          },
+          {
+            role: "user",
+            content: `Partial name: "${query.trim()}" ${locationHint}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) throw new Error(`OpenAI ${response.status}`);
+    const data = await response.json() as any;
+    const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
+    res.json({ suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [] });
+  } catch (err: any) {
+    res.json({ suggestions: [] }); // fail silently — dropdown just stays empty
+  }
+});
+
 export default router;
