@@ -41,6 +41,8 @@ const PRICE_OPTIONS: { level: BudgetLevel; label: string }[] = [
 function FilterSheet({
   visible,
   onClose,
+  category,
+  setCategory,
   prices,
   setPrices,
   neighborhoods,
@@ -52,6 +54,8 @@ function FilterSheet({
 }: {
   visible: boolean;
   onClose: () => void;
+  category: CategoryKey;
+  setCategory: (v: CategoryKey) => void;
   prices: BudgetLevel[];
   setPrices: (v: BudgetLevel[]) => void;
   neighborhoods: string[];
@@ -77,6 +81,7 @@ function FilterSheet({
   };
 
   const activeCount =
+    (category !== 'all' ? 1 : 0) +
     (prices.length > 0 ? 1 : 0) +
     (neighborhoods.length > 0 ? 1 : 0) +
     (sort !== 'newest' ? 1 : 0);
@@ -109,6 +114,34 @@ function FilterSheet({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetBody}>
+            {/* Category */}
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
+              CATEGORY
+            </Text>
+            <View style={styles.chipWrap}>
+              {CATEGORY_OPTIONS.map(opt => {
+                const active = category === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    onPress={() => { Haptics.selectionAsync(); setCategory(opt.key); }}
+                    activeOpacity={0.75}
+                    style={[styles.filterChip, {
+                      backgroundColor: active ? colors.primary : colors.secondary,
+                      borderColor: active ? colors.primary : colors.border,
+                    }]}
+                  >
+                    <Text style={[styles.filterChipText, {
+                      color: active ? colors.primaryForeground : colors.foreground,
+                      fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                    }]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             {/* Sort */}
             <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
               SORT
@@ -461,6 +494,8 @@ export default function PlacesScreen() {
       <FilterSheet
         visible={filterOpen}
         onClose={() => setFilterOpen(false)}
+        category={category}
+        setCategory={setCategory}
         prices={prices}
         setPrices={setPrices}
         neighborhoods={neighborhoods}
@@ -468,7 +503,7 @@ export default function PlacesScreen() {
         sort={sort}
         setSort={setSort}
         allNeighborhoods={allNeighborhoods}
-        onClear={() => { setPrices([]); setNeighborhoods([]); setSort('newest'); }}
+        onClear={() => { setCategory('all'); setPrices([]); setNeighborhoods([]); setSort('newest'); }}
       />
     </View>
   );
