@@ -214,7 +214,7 @@ export default function ResultsScreen() {
   const insets = useSafeAreaInsets();
   const { plan: planParam } = useLocalSearchParams<{ plan: string }>();
   const { places } = usePlaces();
-  const { saveMove } = useMoves();
+  const { moves, saveMove } = useMoves();
   const { userId } = useUser();
 
   // Track saved Move objects per card index
@@ -235,14 +235,29 @@ export default function ResultsScreen() {
   const [groupMemberPlaces, setGroupMemberPlaces] = useState<GroupMemberPlaces[]>([]);
   const [groupSyncLoading, setGroupSyncLoading] = useState(false);
 
+  // Build the set of place keys the user has already visited (marked done)
+  const visitedPlaceKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const move of moves) {
+      if (move.status !== 'done') continue;
+      for (const stop of move.stops) {
+        const name = stop.place.name.trim().toLowerCase();
+        const hood = stop.place.neighborhood.trim().toLowerCase();
+        keys.add(`${name}|${hood}`);
+      }
+    }
+    return keys;
+  }, [moves]);
+
   const itineraries = useMemo(() => {
     if (!plan) return [] as GeneratedItinerary[];
     return generateItineraries(
       [...places, ...aiSuggestions],
       plan,
       groupMemberPlaces.length > 0 ? groupMemberPlaces : undefined,
+      visitedPlaceKeys,
     );
-  }, [plan, places, aiSuggestions, groupMemberPlaces]);
+  }, [plan, places, aiSuggestions, groupMemberPlaces, visitedPlaceKeys]);
 
   // Sync own places + fetch group members' places when a group is selected
   useEffect(() => {

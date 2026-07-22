@@ -174,7 +174,7 @@ function placeKey(name: string, neighborhood: string): string {
  *   6. Route efficiency   — same-borough continuity (captured via hood match)
  *   7. Ratings & quality  — star rating above 3.0
  *   8. Availability conf. — source platform quality
- *   9. Novelty            — place the current user hasn't saved (group-only)
+ *   9. Novelty            — place the user hasn't visited yet (not in a done move)
  */
 function scorePlace(
   place: Place,
@@ -182,6 +182,7 @@ function scorePlace(
   targetCategory: PlaceCategory,
   groupSaveCounts: Map<string, number>,
   totalGroupMembers: number,
+  visitedPlaceKeys: Set<string>,
 ): number {
   if (place.category !== targetCategory) return 0;
 
@@ -241,8 +242,10 @@ function scorePlace(
   };
   score += sourceBonus[place.source] ?? 0;
 
-  // ── 9. Novelty — group-sourced places the current user hasn't saved ───────────
-  if ((place as Place & { __groupOnly?: boolean }).__groupOnly) {
+  // ── 9. Novelty — places the user hasn't visited yet ─────────────────────────
+  // "Visited" means the place appeared in a move the user marked as done.
+  // Unvisited places get a discovery bonus; already-done spots don't.
+  if (visitedPlaceKeys && !visitedPlaceKeys.has(placeKey(place.name, place.neighborhood))) {
     score += 6;
   }
 
@@ -269,11 +272,14 @@ function getDescription(stops: Stop[]): string {
 /**
  * Generate up to 3 itinerary options for the given plan input.
  *
- * @param myPlaces       The current user's saved places.
- * @param input          Parsed plan preferences.
+ * @param myPlaces           The current user's saved places.
+ * @param input              Parsed plan preferences.
  * @param groupMemberPlaces  Optional: places saved by other group members.
- *                       These are merged into the pool and score higher when
- *                       multiple members share the same spot.
+ *                           These are merged into the pool and score higher when
+ *                           multiple members share the same spot.
+ * @param visitedPlaceKeys   Optional: Set of "name|neighborhood" keys for places
+ *                           the user has already visited (moves with status 'done').
+ *                           Unvisited places receive a novelty bonus; visited ones do not.
  *
  * Hard constraints applied:
  *   • Venue selection:    only places whose category matches the vibe sequence slot.
@@ -288,6 +294,7 @@ export function generateItineraries(
   myPlaces: Place[],
   input: PlanInput,
   groupMemberPlaces?: GroupMemberPlaces[],
+  visitedPlaceKeys?: Set<string>,
 ): GeneratedItinerary[] {
   const sequences = VIBE_SEQUENCES[input.vibe] ?? VIBE_SEQUENCES['Dinner & Drinks'];
 
@@ -321,8 +328,7 @@ export function generateItineraries(
         const k = placeKey(place.name, place.neighborhood);
         if (!myPlaceKeys.has(k) && !seenGroupKeys.has(k)) {
           seenGroupKeys.add(k);
-          // Mark as group-only for novelty signal
-          groupOnlyPlaces.push({ ...place, __groupOnly: true } as Place & { __groupOnly: boolean });
+          groupOnlyPlaces.push({ ...place });
         }
       }
     }
@@ -366,7 +372,7 @@ export function generateItineraries(
         .filter(p => !usedIds.has(p.id))
         .map(p => ({
           place: p,
-          score: scorePlace(p, input, category, groupSaveCounts, totalGroupMembers),
+          score: scorePlace(p, input, category, groupSaveCounts, totalGroupMembers, visitedPlaceKeys ?? new Set()),
         }))
         .filter(c => c.score > 0)
         .sort((a, b) => b.score - a.score);
