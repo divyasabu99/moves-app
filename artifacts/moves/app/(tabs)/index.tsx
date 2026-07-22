@@ -302,6 +302,126 @@ export default function PlanScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {/* ── Group planning (chat mode) ─────────────────────────── */}
+            <View style={[styles.section, { marginTop: 8 }]}>
+              <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
+                GROUP <Text style={[styles.labelHint, { color: colors.border }]}>· optional</Text>
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  const next = !planWithGroup;
+                  setPlanWithGroup(next);
+                  if (!next) { setSelectedGroupId(''); setSelectedGroupName(''); }
+                }}
+                activeOpacity={0.75}
+                style={[styles.groupToggle, {
+                  backgroundColor: planWithGroup ? colors.primary + '18' : colors.card,
+                  borderColor: planWithGroup ? colors.primary + '55' : colors.border,
+                }]}
+              >
+                <View style={[styles.groupToggleIcon, {
+                  backgroundColor: planWithGroup ? colors.primary : colors.secondary,
+                }]}>
+                  <Ionicons name="people" size={16} color={planWithGroup ? colors.primaryForeground : colors.mutedForeground} />
+                </View>
+                <View style={styles.groupToggleText}>
+                  <Text style={[styles.groupToggleLabel, {
+                    color: planWithGroup ? colors.primary : colors.foreground,
+                    fontFamily: planWithGroup ? 'Inter_600SemiBold' : 'Inter_500Medium',
+                  }]}>
+                    Plan with a group
+                  </Text>
+                  <Text style={[styles.groupToggleSub, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                    {planWithGroup ? "We'll factor in what everyone's saved" : "Use places saved by your crew too"}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={planWithGroup ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={22}
+                  color={planWithGroup ? colors.primary : colors.border}
+                />
+              </TouchableOpacity>
+
+              {planWithGroup && (
+                <View style={styles.groupPickerWrap}>
+                  {groupsLoading ? (
+                    <View style={styles.groupPickerLoading}>
+                      <ActivityIndicator color={colors.primary} size="small" />
+                      <Text style={[styles.groupPickerHint, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                        Loading your groups…
+                      </Text>
+                    </View>
+                  ) : groupsError ? (
+                    <View style={styles.groupPickerLoading}>
+                      <Text style={[styles.groupPickerHint, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                        Couldn't load groups.{' '}
+                      </Text>
+                      <TouchableOpacity onPress={loadGroups} activeOpacity={0.7}>
+                        <Text style={[styles.groupPickerHint, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                          Retry
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : groups.length === 0 ? (
+                    <View style={styles.groupPickerLoading}>
+                      <Text style={[styles.groupPickerHint, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                        No groups yet.{' '}
+                      </Text>
+                      <TouchableOpacity onPress={() => router.push('/(tabs)/groups')} activeOpacity={0.7}>
+                        <Text style={[styles.groupPickerHint, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                          Create one →
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.groupChips}>
+                      {groups.map(g => {
+                        const active = selectedGroupId === g.id;
+                        return (
+                          <TouchableOpacity
+                            key={g.id}
+                            onPress={() => { Haptics.selectionAsync(); setSelectedGroupId(g.id); setSelectedGroupName(g.name); }}
+                            activeOpacity={0.75}
+                            style={[styles.groupChip, {
+                              backgroundColor: active ? colors.primary : colors.card,
+                              borderColor: active ? colors.primary : colors.border,
+                            }]}
+                          >
+                            <View style={[styles.groupChipAvatar, {
+                              backgroundColor: active ? colors.primaryForeground + '30' : colors.secondary,
+                            }]}>
+                              <Text style={[styles.groupChipLetter, {
+                                color: active ? colors.primaryForeground : colors.foreground,
+                                fontFamily: 'Inter_700Bold',
+                              }]}>
+                                {g.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View style={styles.groupChipInfo}>
+                              <Text style={[styles.groupChipName, {
+                                color: active ? colors.primaryForeground : colors.foreground,
+                                fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                              }]} numberOfLines={1}>
+                                {g.name}
+                              </Text>
+                              <Text style={[styles.groupChipMeta, {
+                                color: active ? colors.primaryForeground + 'AA' : colors.mutedForeground,
+                                fontFamily: 'Inter_400Regular',
+                              }]}>
+                                {g.memberCount} {g.memberCount === 1 ? 'member' : 'members'}
+                              </Text>
+                            </View>
+                            {active && <Ionicons name="checkmark" size={16} color={colors.primaryForeground} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         ) : (
           <>
