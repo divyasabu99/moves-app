@@ -34,6 +34,19 @@ export function PlaceCard({ place, onPress, onLongPress }: PlaceCardProps) {
         >
           {place.name}
         </Text>
+        <View style={styles.meta}>
+          <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+            {place.neighborhood}
+          </Text>
+          <View style={[styles.dot, { backgroundColor: colors.border }]} />
+          <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+            {CATEGORY_LABELS[place.category]}
+          </Text>
+          <View style={[styles.dot, { backgroundColor: colors.border }]} />
+          <Text style={[styles.budget, { color: colors.accent, fontFamily: 'Inter_600SemiBold' }]}>
+            {BUDGET_LABELS[place.priceLevel]}
+          </Text>
+        </View>
         {place.vibeDescription ? (
           <Text
             style={[styles.vibeDescription, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}
@@ -41,21 +54,7 @@ export function PlaceCard({ place, onPress, onLongPress }: PlaceCardProps) {
           >
             {place.vibeDescription}
           </Text>
-        ) : (
-          <View style={styles.meta}>
-            <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-              {place.neighborhood}
-            </Text>
-            <View style={[styles.dot, { backgroundColor: colors.border }]} />
-            <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-              {CATEGORY_LABELS[place.category]}
-            </Text>
-            <View style={[styles.dot, { backgroundColor: colors.border }]} />
-            <Text style={[styles.budget, { color: colors.accent, fontFamily: 'Inter_600SemiBold' }]}>
-              {BUDGET_LABELS[place.priceLevel]}
-            </Text>
-          </View>
-        )}
+        ) : null}
       </View>
       <View style={[styles.sourceBadge, { backgroundColor: colors.muted }]}>
         <Text style={[styles.sourceText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
