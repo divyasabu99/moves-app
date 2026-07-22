@@ -38,6 +38,10 @@ function RootLayoutNav() {
         options={{ headerShown: false, presentation: 'modal' }}
       />
       <Stack.Screen
+        name="place-detail"
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
         name="move-detail"
         options={{ headerShown: false, animation: 'slide_from_right' }}
       />

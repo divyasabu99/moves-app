@@ -130,7 +130,11 @@ export default function PlacesScreen() {
           data={filtered}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
-            <PlaceCard place={item} onLongPress={() => handleLongPress(item)} />
+            <PlaceCard
+              place={item}
+              onPress={() => router.push({ pathname: '/place-detail', params: { id: item.id } })}
+              onLongPress={() => handleLongPress(item)}
+            />
           )}
           contentContainerStyle={[styles.list, { paddingBottom: botPad }]}
           showsVerticalScrollIndicator={false}
