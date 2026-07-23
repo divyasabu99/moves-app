@@ -57,6 +57,33 @@ function neighborhoodFromAddress(address: string): string {
   return "New York";
 }
 
+function inferPrice(name: string, category: string): 1 | 2 | 3 | 4 {
+  const n = name.toLowerCase();
+
+  // Clearly expensive — fine dining / high-end concepts
+  if (/\b(omakase|kaiseki|tasting menu|prix.?fixe|chophouse|steakhouse|brasserie|supper club)\b/.test(n)) return 4;
+  if (/\b(per se|le bernardin|eleven madison|masa|daniel|jean.?georges|gabriel kreuther|aquavit|gramercy tavern)\b/.test(n)) return 4;
+
+  // Upscale indicators
+  if (/\b(steak|prime|oyster|sushi|seafood|rooftop|sky|penthouse|club|lounge|grill|chophouse|trattoria|osteria|bistrot|brasserie)\b/.test(n)) return 3;
+  if (/\b(tavern|inn|house|parlor|kitchen|provisions|cellar|supper)\b/.test(n)) return 3;
+
+  // Budget / fast-casual indicators
+  if (/\b(diner|deli|bodega|cart|stand|counter|fast|quick|express|dollar)\b/.test(n)) return 1;
+  if (/\b(pizza|burger|taco|burrito|dumpling|noodle|ramen|pho|sandwich|bagel|pretzel|falafel|halal|kebab|hot dog)\b/.test(n)) return 1;
+  if (/\b(bakery|patisserie|boulangerie|dessert|ice cream|gelato|donut|cupcake|cafe|coffee|espresso|roast)\b/.test(n)) return 1;
+
+  // Category-level defaults
+  if (category === "cafe")     return 1;
+  if (category === "park")     return 1;
+  if (category === "activity") return 2;
+  if (category === "museum")   return 2;
+  if (category === "shop")     return 2;
+  if (category === "bar")      return 2;
+
+  return 2; // moderate default for restaurants
+}
+
 function inferCategory(name: string): string {
   const n = name.toLowerCase();
   if (/\b(bar|pub|tavern|brewery|taproom|lounge|speakeasy|dive|cocktail|wine bar|winery|distillery)\b/.test(n)) return "bar";
@@ -240,17 +267,20 @@ router.post("/import/google-maps-list", async (req, res) => {
     const skipped = raw.length - nycPlaces.length;
 
     // Step 5: shape into Place objects
-    const places = nycPlaces.map(p => ({
-      id: makeId(),
-      name: p.name,
-      category: inferCategory(p.name),
-      neighborhood: p.address ? neighborhoodFromAddress(p.address) : "New York",
-      priceLevel: 2,
-      source: "google_maps",
-      vibes: [],
-      address: p.address || undefined,
-      createdAt: new Date().toISOString(),
-    }));
+    const places = nycPlaces.map(p => {
+      const category = inferCategory(p.name);
+      return {
+        id: makeId(),
+        name: p.name,
+        category,
+        neighborhood: p.address ? neighborhoodFromAddress(p.address) : "New York",
+        priceLevel: inferPrice(p.name, category),
+        source: "google_maps",
+        vibes: [],
+        address: p.address || undefined,
+        createdAt: new Date().toISOString(),
+      };
+    });
 
     // Step 6: deduplicate by name
     const seen = new Set<string>();
