@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { db } from "@workspace/db";
+import { pool } from "@workspace/db";
 
 const router = Router();
 const JWT_SECRET = process.env.SESSION_SECRET ?? "moves-secret-fallback";
@@ -34,7 +34,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 
   try {
     // Check email already taken
-    const existing = await db.query(
+    const existing = await pool.query(
       "SELECT id FROM moves_users WHERE LOWER(email) = $1",
       [normalizedEmail]
     );
@@ -45,7 +45,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const userId = makeId();
 
-    await db.query(
+    await pool.query(
       `INSERT INTO moves_users (id, display_name, email, password_hash)
        VALUES ($1, $2, $3, $4)`,
       [userId, nameTrimmed, normalizedEmail, passwordHash]
@@ -70,7 +70,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   const normalizedEmail = String(email).trim().toLowerCase();
 
   try {
-    const result = await db.query(
+    const result = await pool.query(
       "SELECT id, display_name, password_hash FROM moves_users WHERE LOWER(email) = $1",
       [normalizedEmail]
     );

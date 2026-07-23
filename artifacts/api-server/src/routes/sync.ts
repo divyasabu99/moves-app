@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { db } from "@workspace/db";
+import { pool } from "@workspace/db";
 
 const router = Router();
 const JWT_SECRET = process.env.SESSION_SECRET ?? "moves-secret-fallback";
@@ -26,7 +26,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 router.get("/sync/places", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId as string;
   try {
-    const result = await db.query(
+    const result = await pool.query(
       "SELECT places FROM user_places WHERE user_id = $1",
       [userId]
     );
@@ -46,7 +46,7 @@ router.post("/sync/places", requireAuth, async (req: Request, res: Response) => 
     return res.status(400).json({ error: "places must be an array" });
   }
   try {
-    await db.query(
+    await pool.query(
       `INSERT INTO user_places (user_id, places, updated_at)
        VALUES ($1, $2, NOW())
        ON CONFLICT (user_id) DO UPDATE
@@ -66,7 +66,7 @@ router.post("/sync/places", requireAuth, async (req: Request, res: Response) => 
 router.get("/sync/moves", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId as string;
   try {
-    const result = await db.query(
+    const result = await pool.query(
       "SELECT moves FROM user_moves WHERE user_id = $1",
       [userId]
     );
@@ -86,7 +86,7 @@ router.post("/sync/moves", requireAuth, async (req: Request, res: Response) => {
     return res.status(400).json({ error: "moves must be an array" });
   }
   try {
-    await db.query(
+    await pool.query(
       `INSERT INTO user_moves (user_id, moves, updated_at)
        VALUES ($1, $2, NOW())
        ON CONFLICT (user_id) DO UPDATE
