@@ -51,6 +51,12 @@ export interface Move {
   createdAt: string;
 }
 
+export interface UserPreferences {
+  music: string[];
+  events: string[];
+  food: string[];
+}
+
 export interface PlanInput {
   vibe: string;
   date: string;
@@ -62,6 +68,7 @@ export interface PlanInput {
   savedOnly?: boolean;
   groupId?: string;
   groupName?: string;
+  preferences?: UserPreferences;
 }
 
 export interface GroupMemberPlaces {

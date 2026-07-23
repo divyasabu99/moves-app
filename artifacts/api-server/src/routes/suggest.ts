@@ -11,12 +11,13 @@ const OPENAI_KEY  = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"]  ?? "";
  * Returns AI-suggested real NYC places that supplement the user's saved library.
  */
 router.post("/suggest-places", async (req, res) => {
-  const { vibe, neighborhoods, budgetLevel, categories, excludeNames } = req.body as {
+  const { vibe, neighborhoods, budgetLevel, categories, excludeNames, preferences } = req.body as {
     vibe?: string;
     neighborhoods?: string[];
     budgetLevel?: number[];
     categories?: string[];
     excludeNames?: string[];
+    preferences?: { music?: string[]; events?: string[]; food?: string[] };
   };
 
   if (!vibe || !categories?.length) {
@@ -40,6 +41,14 @@ router.post("/suggest-places", async (req, res) => {
       : "";
 
   const categoriesStr = [...new Set(categories)].join(", ");
+
+  const prefStr = preferences && (
+    (preferences.music?.length || preferences.events?.length || preferences.food?.length)
+  ) ? `User taste profile: ${[
+      preferences.music?.length ? `music — ${preferences.music.join(', ')}` : '',
+      preferences.events?.length ? `events — ${preferences.events.join(', ')}` : '',
+      preferences.food?.length ? `food — ${preferences.food.join(', ')}` : '',
+    ].filter(Boolean).join('; ')}. Lean toward suggestions that match this profile.` : '';
 
   try {
     const response = await fetch(`${OPENAI_BASE}/chat/completions`, {
@@ -74,7 +83,8 @@ Rules:
 - Match the vibe, neighborhood, and budget constraints.
 - priceLevel: 1=$, 2=$$, 3=$$$, 4=$$$$
 - vibeDescription: e.g. "romantic rooftop bar with lower Manhattan views" or "no-frills ramen spot beloved by locals"
-${excludeStr}`,
+${excludeStr}
+${prefStr}`,
           },
           {
             role: "user",

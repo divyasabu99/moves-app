@@ -50,7 +50,7 @@ const PlacesContext = createContext<PlacesContextType>({
 export function PlacesProvider({ children }: { children: React.ReactNode }) {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, isAuthenticated } = useUser();
+  const { user, isAuthenticated, isNewRegistration } = useUser();
 
   // ── Initial load from AsyncStorage ────────────────────────────────────────
   useEffect(() => {
@@ -79,6 +79,7 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
     syncedUserRef.current = user.userId;
 
     const token = user.token;
+    const isNew = isNewRegistration;
     ;(async () => {
       try {
         const res = await fetch(`${BASE_URL}/sync/places`, {
@@ -87,11 +88,20 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
         if (!res.ok) return;
         const data = await res.json();
         if (Array.isArray(data.places) && data.places.length > 0) {
-          // Server has data — use it
+          // Server has data — use it (returning user on a new device)
           setPlaces(data.places);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data.places));
+        } else if (isNew) {
+          // Brand-new user — start with an empty library; push empty to server
+          setPlaces([]);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+          await fetch(`${BASE_URL}/sync/places`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ places: [] }),
+          });
         } else {
-          // No server data yet — push local places (new registration)
+          // Existing user re-installing — push whatever they have locally
           const stored = await AsyncStorage.getItem(STORAGE_KEY);
           const localPlaces: Place[] = stored ? JSON.parse(stored) : [];
           if (localPlaces.length > 0) {

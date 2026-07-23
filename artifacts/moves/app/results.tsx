@@ -295,6 +295,7 @@ export default function ResultsScreen() {
         budgetLevel: plan.budgetLevel,
         categories,
         excludeNames,
+        preferences: plan.preferences,
       }),
     })
       .then(r => r.json())

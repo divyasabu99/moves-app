@@ -69,7 +69,7 @@ type Mode = 'form' | 'chat';
 export default function PlanScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, userId, logout } = useUser();
+  const { user, userId, logout, preferences } = useUser();
 
   const DATE_OPTIONS = getDateOptions();
 
@@ -182,6 +182,7 @@ export default function PlanScreen() {
     savedOnly: !suggestNew,
     groupId: planWithGroup && selectedGroupId ? selectedGroupId : undefined,
     groupName: planWithGroup && selectedGroupName ? selectedGroupName : undefined,
+    preferences: preferences ?? undefined,
   });
 
   const handleGenerate = async () => {
@@ -208,7 +209,7 @@ export default function PlanScreen() {
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const plan = await res.json() as PlanInput;
-      router.push({ pathname: '/results', params: { plan: JSON.stringify(plan) } });
+      router.push({ pathname: '/results', params: { plan: JSON.stringify({ ...plan, preferences: preferences ?? undefined }) } });
     } catch {
       setChatError('Could not parse your request. Try again or use the form.');
     } finally {

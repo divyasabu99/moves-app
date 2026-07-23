@@ -21,23 +21,26 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
-// Handles redirecting to /auth when not logged in
 function AuthGuard() {
-  const { isAuthenticated, authReady } = useUser();
+  const { isAuthenticated, authReady, isVerified, onboardingComplete } = useUser();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (!authReady) return;
 
-    const inAuthGroup = segments[0] === 'auth';
+    const current = segments[0] as string | undefined;
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/auth');
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace('/(tabs)');
+    if (!isAuthenticated) {
+      if (current !== 'auth') router.replace('/auth');
+    } else if (!isVerified) {
+      if (current !== 'verify-email') router.replace('/verify-email');
+    } else if (!onboardingComplete) {
+      if (current !== 'onboarding') router.replace('/onboarding');
+    } else {
+      if (current !== '(tabs)') router.replace('/(tabs)');
     }
-  }, [isAuthenticated, authReady, segments]);
+  }, [isAuthenticated, authReady, isVerified, onboardingComplete, segments]);
 
   return null;
 }
@@ -47,36 +50,17 @@ function RootLayoutNav() {
     <>
       <AuthGuard />
       <Stack screenOptions={{ headerBackTitle: 'Back' }}>
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="results"
-          options={{ headerShown: false, animation: 'slide_from_bottom' }}
-        />
-        <Stack.Screen
-          name="add-place"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="add-move"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="import-places"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="place-detail"
-          options={{ headerShown: false, animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="move-detail"
-          options={{ headerShown: false, animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="group-detail"
-          options={{ headerShown: false, animation: 'slide_from_right' }}
-        />
+        <Stack.Screen name="auth"         options={{ headerShown: false }} />
+        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding"   options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)"       options={{ headerShown: false }} />
+        <Stack.Screen name="results"      options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="add-place"    options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="add-move"     options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="import-places" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="place-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="move-detail"  options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="group-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>
   );
@@ -91,9 +75,7 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
+    if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;
