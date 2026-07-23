@@ -44,7 +44,7 @@ function makeId(): string {
 export function MovesProvider({ children }: { children: React.ReactNode }) {
   const [moves, setMoves] = useState<Move[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, isAuthenticated } = useUser();
+  const { user, isAuthenticated, isNewRegistration } = useUser();
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -88,9 +88,9 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
           await fetch(`${BASE_URL}/sync/moves`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ moves: isNew ? [] : localMoves }),
+            body: JSON.stringify({ moves: isNewRegistration ? [] : localMoves }),
           });
-          if (isNew) {
+          if (isNewRegistration) {
             setMoves([]);
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
           }
@@ -142,6 +142,8 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
       totalEstimatedCostPerPerson: itinerary.totalEstimatedCostPerPerson,
       status: 'saved',
       createdAt: new Date().toISOString(),
+      groupId: input.groupId,
+      groupName: input.groupName,
     };
     setMoves(prev => { const next = [newMove, ...prev]; persist(next); return next; });
     return newMove;

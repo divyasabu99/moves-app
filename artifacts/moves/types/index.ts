@@ -49,6 +49,8 @@ export interface Move {
   totalEstimatedCostPerPerson: number;
   status: MoveStatus;
   createdAt: string;
+  groupId?: string;
+  groupName?: string;
 }
 
 export interface UserPreferences {
