@@ -78,15 +78,10 @@ export default function AuthScreen() {
 
       await login(
         { userId: data.userId, displayName: data.displayName, email: email.trim().toLowerCase(), token: data.token },
-        { emailVerified, isNew }
+        { emailVerified, isNew, devCode: data.devCode }
       );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // If dev mode returned a code, carry it to the verify screen
-      if (!emailVerified && data.devCode) {
-        router.replace({ pathname: '/verify-email', params: { devCode: data.devCode } });
-        return;
-      }
       // AuthGuard in _layout.tsx handles routing based on isVerified / onboardingComplete
     } catch {
       setError('Could not connect. Check your internet connection and try again.');

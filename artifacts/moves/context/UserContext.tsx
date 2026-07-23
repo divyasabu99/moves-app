@@ -22,6 +22,7 @@ export interface AuthUser {
 interface LoginOpts {
   emailVerified?: boolean; // default true
   isNew?: boolean;         // true when coming from registration
+  devCode?: string;        // verification code shown on-screen when no email service
 }
 
 interface UserContextType {
@@ -32,10 +33,12 @@ interface UserContextType {
   onboardingComplete: boolean;
   isNewRegistration: boolean;
   preferences: UserPreferences | null;
+  devCode: string | null;
 
   login: (user: AuthUser, opts?: LoginOpts) => Promise<void>;
   logout: () => Promise<void>;
   setVerified: () => Promise<void>;
+  clearDevCode: () => void;
   completeOnboarding: (prefs: UserPreferences) => Promise<void>;
   updateDisplayName: (name: string) => void;
 
@@ -52,9 +55,11 @@ const UserContext = createContext<UserContextType>({
   onboardingComplete: false,
   isNewRegistration: false,
   preferences: null,
+  devCode: null,
   login: async () => {},
   logout: async () => {},
   setVerified: async () => {},
+  clearDevCode: () => {},
   completeOnboarding: async () => {},
   updateDisplayName: () => {},
   userId: '',
@@ -68,6 +73,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [isNewRegistration, setIsNewRegistration]   = useState(false);
   const [preferences, setPreferences]           = useState<UserPreferences | null>(null);
+  const [devCode, setDevCode]                   = useState<string | null>(null);
 
   // ── Restore session on launch ────────────────────────────────────────────
   useEffect(() => {
@@ -111,7 +117,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (authUser: AuthUser, opts: LoginOpts = {}) => {
-    const { emailVerified = true, isNew = false } = opts;
+    const { emailVerified = true, isNew = false, devCode: code } = opts;
+    if (code) setDevCode(code);
     await AsyncStorage.multiSet([
       [TOKEN_KEY, authUser.token],
       [USER_ID_KEY, authUser.userId],
@@ -139,7 +146,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const setVerified = useCallback(async () => {
     await AsyncStorage.setItem(VERIFIED_KEY, 'true');
     setIsVerified(true);
+    setDevCode(null);
   }, []);
+
+  const clearDevCode = useCallback(() => setDevCode(null), []);
 
   const completeOnboarding = useCallback(async (prefs: UserPreferences) => {
     await AsyncStorage.multiSet([
@@ -166,9 +176,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       onboardingComplete,
       isNewRegistration,
       preferences,
+      devCode,
       login,
       logout,
       setVerified,
+      clearDevCode,
       completeOnboarding,
       updateDisplayName,
       userId: user?.userId ?? '',

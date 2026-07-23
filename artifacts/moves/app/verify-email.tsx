@@ -8,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useUser } from '@/context/UserContext';
-import { useLocalSearchParams } from 'expo-router';
 
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const CODE_LEN = 6;
@@ -17,8 +16,7 @@ const RESEND_COOLDOWN = 30; // seconds
 export default function VerifyEmailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, setVerified, logout } = useUser();
-  const params = useLocalSearchParams<{ devCode?: string }>();
+  const { user, setVerified, clearDevCode, logout, devCode: ctxDevCode } = useUser();
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,9 +24,13 @@ export default function VerifyEmailScreen() {
   const [success, setSuccess] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [resending, setResending] = useState(false);
-  const [devCode, setDevCode] = useState<string | undefined>(params.devCode);
+  // Local copy so resend can update it without mutating context
+  const [devCode, setDevCode] = useState<string | null | undefined>(ctxDevCode);
   const inputRef = useRef<TextInput>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Sync devCode from context (may arrive after mount)
+  useEffect(() => { if (ctxDevCode) setDevCode(ctxDevCode); }, [ctxDevCode]);
 
   // Auto-focus on mount
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300); }, []);
@@ -66,6 +68,7 @@ export default function VerifyEmailScreen() {
       } else {
         setSuccess(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        clearDevCode();
         await setVerified();
         // AuthGuard will route to onboarding automatically
       }
