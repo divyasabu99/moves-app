@@ -442,36 +442,55 @@ export default function PlacesScreen() {
         <PlacesMapView places={filtered} />
       ) : isEmpty ? (
         <View style={styles.emptyState}>
-          <Ionicons name="bookmark-outline" size={44} color={colors.mutedForeground} />
-          <Text style={[styles.emptyTitle, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
-            {activeFilterCount > 0 ? 'No matches' : 'No places yet'}
-          </Text>
-          <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            {activeFilterCount > 0
-              ? 'Try adjusting or clearing your filters.'
-              : 'Tap + to add your first spot.'}
-          </Text>
           {activeFilterCount > 0 ? (
-            <TouchableOpacity
-              onPress={clearFilters}
-              style={[styles.emptyBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.emptyBtnText, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]}>
-                Clear filters
+            <>
+              <Ionicons name="filter-outline" size={44} color={colors.mutedForeground} />
+              <Text style={[styles.emptyTitle, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
+                No matches
               </Text>
-            </TouchableOpacity>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                Try adjusting or clearing your filters.
+              </Text>
+              <TouchableOpacity
+                onPress={clearFilters}
+                style={[styles.emptyBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.emptyBtnText, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]}>
+                  Clear filters
+                </Text>
+              </TouchableOpacity>
+            </>
           ) : (
-            <TouchableOpacity
-              onPress={() => router.push('/add-place')}
-              style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={16} color={colors.primaryForeground} />
-              <Text style={[styles.emptyBtnText, { color: colors.primaryForeground, fontFamily: 'Inter_600SemiBold' }]}>
-                Add a Place
+            <>
+              <Ionicons name="map-outline" size={52} color={colors.mutedForeground} />
+              <Text style={[styles.emptyTitle, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>
+                Your list is empty
               </Text>
-            </TouchableOpacity>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                Save spots you want to hit, or pull in your existing Google Maps list in seconds.
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/import-places')}
+                style={[styles.emptyBtnPrimary, { backgroundColor: colors.primary }]}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="logo-google" size={16} color={colors.primaryForeground} />
+                <Text style={[styles.emptyBtnText, { color: colors.primaryForeground, fontFamily: 'Inter_600SemiBold' }]}>
+                  Import from Google Maps
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push('/add-place')}
+                style={[styles.emptyBtnSecondary, { borderColor: colors.border }]}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={16} color={colors.foreground} />
+                <Text style={[styles.emptyBtnText, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]}>
+                  Add a place manually
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       ) : (
@@ -582,14 +601,24 @@ const styles = StyleSheet.create({
   list: { padding: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyState: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12,
+    flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 14,
   },
-  emptyTitle: { fontSize: 20, textAlign: 'center' },
-  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  emptyTitle: { fontSize: 22, textAlign: 'center' },
+  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22, maxWidth: 280 },
   emptyBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingHorizontal: 20, paddingVertical: 12,
     borderRadius: 12, marginTop: 8, borderWidth: 1,
+  },
+  emptyBtnPrimary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingHorizontal: 24, paddingVertical: 14,
+    borderRadius: 14, width: '100%', marginTop: 4,
+  },
+  emptyBtnSecondary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingHorizontal: 24, paddingVertical: 13,
+    borderRadius: 14, width: '100%', borderWidth: 1,
   },
   emptyBtnText: { fontSize: 14 },
 
