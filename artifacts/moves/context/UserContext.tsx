@@ -125,13 +125,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       [DISPLAY_NAME_KEY, authUser.displayName],
       [EMAIL_KEY, authUser.email],
       [VERIFIED_KEY, emailVerified ? 'true' : 'false'],
-      // Reset onboarding for new users; keep existing value for returning users
-      ...(isNew ? [[ONBOARDING_KEY, 'false'] as [string, string]] : []),
+      // New users must complete onboarding; returning users already have — restore the flag
+      [ONBOARDING_KEY, isNew ? 'false' : 'true'],
     ]);
     setUser(authUser);
     setIsVerified(emailVerified);
     setIsNewRegistration(isNew);
-    if (isNew) setOnboardingComplete(false);
+    setOnboardingComplete(!isNew);
   }, []);
 
   const logout = useCallback(async () => {
