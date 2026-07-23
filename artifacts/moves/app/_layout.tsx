@@ -29,6 +29,9 @@ function AuthGuard() {
   useEffect(() => {
     if (!authReady) return;
 
+    // Read segments inside the effect so we always have the current value,
+    // but do NOT include segments in the dep array — the guard should only
+    // fire when auth state changes, never on arbitrary user navigation.
     const current = segments[0] as string | undefined;
 
     const AUTH_SCREENS = ['auth', 'verify-email', 'onboarding'];
@@ -40,10 +43,11 @@ function AuthGuard() {
     } else if (!onboardingComplete) {
       if (current !== 'onboarding') router.replace('/onboarding');
     } else {
-      // Authenticated + verified + onboarded — only redirect if still on an auth screen
+      // Only push to tabs if still sitting on an auth-flow screen
       if (AUTH_SCREENS.includes(current ?? '')) router.replace('/(tabs)');
     }
-  }, [isAuthenticated, authReady, isVerified, onboardingComplete, segments]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, authReady, isVerified, onboardingComplete]);
 
   return null;
 }
