@@ -60,7 +60,10 @@ function FilterSheet({
   setSort,
   minRating,
   setMinRating,
+  cuisines,
+  setCuisines,
   allNeighborhoods,
+  allCuisines,
   onClear,
 }: {
   visible: boolean;
@@ -75,7 +78,10 @@ function FilterSheet({
   setSort: (v: SortOrder) => void;
   minRating: number;
   setMinRating: (v: number) => void;
+  cuisines: string[];
+  setCuisines: (v: string[]) => void;
   allNeighborhoods: string[];
+  allCuisines: string[];
   onClear: () => void;
 }) {
   const colors = useColors();
@@ -93,12 +99,18 @@ function FilterSheet({
     );
   };
 
+  const toggleCuisine = (c: string) => {
+    Haptics.selectionAsync();
+    setCuisines(cuisines.includes(c) ? cuisines.filter(x => x !== c) : [...cuisines, c]);
+  };
+
   const activeCount =
     (category !== 'all' ? 1 : 0) +
     (prices.length > 0 ? 1 : 0) +
     (neighborhoods.length > 0 ? 1 : 0) +
     (sort !== 'newest' ? 1 : 0) +
-    (minRating > 0 ? 1 : 0);
+    (minRating > 0 ? 1 : 0) +
+    (cuisines.length > 0 ? 1 : 0);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -244,6 +256,38 @@ function FilterSheet({
               })}
             </View>
 
+            {/* Cuisine */}
+            {allCuisines.length > 0 && (
+              <>
+                <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
+                  CUISINE
+                </Text>
+                <View style={styles.chipWrap}>
+                  {allCuisines.map(c => {
+                    const active = cuisines.includes(c);
+                    return (
+                      <TouchableOpacity
+                        key={c}
+                        onPress={() => toggleCuisine(c)}
+                        activeOpacity={0.75}
+                        style={[styles.filterChip, {
+                          backgroundColor: active ? colors.primary : colors.secondary,
+                          borderColor: active ? colors.primary : colors.border,
+                        }]}
+                      >
+                        <Text style={[styles.filterChipText, {
+                          color: active ? colors.primaryForeground : colors.foreground,
+                          fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                        }]}>
+                          {c}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
             {/* Neighborhoods */}
             {allNeighborhoods.length > 0 && (
               <>
@@ -307,6 +351,7 @@ export default function PlacesScreen() {
   const [neighborhoods, setNeighborhoods] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOrder>('newest');
   const [minRating, setMinRating] = useState(0);
+  const [cuisines, setCuisines] = useState<string[]>([]);
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 16);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 100);
@@ -316,12 +361,18 @@ export default function PlacesScreen() {
     [places]
   );
 
+  const allCuisines = useMemo(
+    () => [...new Set(places.map(p => p.cuisine).filter((c): c is string => !!c))].sort(),
+    [places]
+  );
+
   const filtered = useMemo(() => {
     let result = places;
     if (category !== 'all') result = result.filter(p => p.category === category);
     if (prices.length > 0) result = result.filter(p => prices.includes(p.priceLevel));
     if (neighborhoods.length > 0) result = result.filter(p => neighborhoods.includes(p.neighborhood));
     if (minRating > 0) result = result.filter(p => p.rating !== undefined && p.rating >= minRating);
+    if (cuisines.length > 0) result = result.filter(p => p.cuisine && cuisines.includes(p.cuisine));
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       result = result.filter(p =>
@@ -346,7 +397,8 @@ export default function PlacesScreen() {
     (prices.length > 0 ? 1 : 0) +
     (neighborhoods.length > 0 ? 1 : 0) +
     (sort !== 'newest' ? 1 : 0) +
-    (minRating > 0 ? 1 : 0);
+    (minRating > 0 ? 1 : 0) +
+    (cuisines.length > 0 ? 1 : 0);
 
   const clearFilters = useCallback(() => {
     setCategory('all');
@@ -354,6 +406,7 @@ export default function PlacesScreen() {
     setNeighborhoods([]);
     setSort('newest');
     setMinRating(0);
+    setCuisines([]);
   }, []);
 
   const handleLongPress = (place: Place) => {
@@ -604,7 +657,10 @@ export default function PlacesScreen() {
         setSort={setSort}
         minRating={minRating}
         setMinRating={setMinRating}
+        cuisines={cuisines}
+        setCuisines={setCuisines}
         allNeighborhoods={allNeighborhoods}
+        allCuisines={allCuisines}
         onClear={clearFilters}
       />
     </View>
