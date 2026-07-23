@@ -31,6 +31,8 @@ function AuthGuard() {
 
     const current = segments[0] as string | undefined;
 
+    const AUTH_SCREENS = ['auth', 'verify-email', 'onboarding'];
+
     if (!isAuthenticated) {
       if (current !== 'auth') router.replace('/auth');
     } else if (!isVerified) {
@@ -38,7 +40,8 @@ function AuthGuard() {
     } else if (!onboardingComplete) {
       if (current !== 'onboarding') router.replace('/onboarding');
     } else {
-      if (current !== '(tabs)') router.replace('/(tabs)');
+      // Authenticated + verified + onboarded — only redirect if still on an auth screen
+      if (AUTH_SCREENS.includes(current ?? '')) router.replace('/(tabs)');
     }
   }, [isAuthenticated, authReady, isVerified, onboardingComplete, segments]);
 
