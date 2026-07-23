@@ -19,7 +19,9 @@ type ModalMode = 'none' | 'create' | 'join' | 'setName';
 export default function GroupsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userId, displayName, setDisplayName, ready } = useUser();
+  const { userId, displayName, updateDisplayName, authReady } = useUser();
+  const ready = authReady;
+  const setDisplayName = updateDisplayName;
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
