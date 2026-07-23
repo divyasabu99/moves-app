@@ -84,6 +84,29 @@ function inferPrice(name: string, category: string): 1 | 2 | 3 | 4 {
   return 2; // moderate default for restaurants
 }
 
+function inferTags(name: string, category: string): string[] {
+  const n = name.toLowerCase();
+  const tags: string[] = [];
+  if (/rooftop|roof top/.test(n)) tags.push('rooftop');
+  if (/outdoor|patio|garden|terrace|open.?air/.test(n)) tags.push('outdoor seating');
+  if (/speakeasy|speak easy/.test(n)) tags.push('speakeasy');
+  if (/brunch/.test(n)) tags.push('brunch');
+  if (/dive/.test(n)) tags.push('dive bar');
+  if (/jazz|blues|live music/.test(n)) tags.push('live music');
+  if (/karaoke/.test(n)) tags.push('karaoke');
+  if (/late|24.?hr|24.?hour|all.?night/.test(n)) tags.push('late night');
+  if (/byob/.test(n)) tags.push('BYOB');
+  if (/omakase/.test(n)) tags.push('omakase');
+  if (/happy.?hour/.test(n)) tags.push('happy hour');
+  if (/tasting menu|prix.?fixe/.test(n)) tags.push('tasting menu');
+  if (/cash only|cash-only/.test(n)) tags.push('cash only');
+  if (/pop.?up/.test(n)) tags.push('pop-up');
+  if (category === 'bar' && /wine/.test(n)) tags.push('wine bar');
+  if (category === 'bar' && /cocktail/.test(n)) tags.push('cocktails');
+  if (category === 'bar' && /craft.?beer|taproom|brewery/.test(n)) tags.push('craft beer');
+  return tags;
+}
+
 function inferCategory(name: string): string {
   const n = name.toLowerCase();
   if (/\b(bar|pub|tavern|brewery|taproom|lounge|speakeasy|dive|cocktail|wine bar|winery|distillery)\b/.test(n)) return "bar";
@@ -277,6 +300,7 @@ router.post("/import/google-maps-list", async (req, res) => {
         priceLevel: inferPrice(p.name, category),
         source: "google_maps",
         vibes: [],
+        tags: inferTags(p.name, category),
         address: p.address || undefined,
         createdAt: new Date().toISOString(),
       };

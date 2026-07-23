@@ -41,14 +41,18 @@ Respond ONLY with valid JSON matching this shape exactly:
   "priceLevel": 1 | 2 | 3 | 4,
   "address": "<full street address or empty string>",
   "vibes": ["<vibe1>", "<vibe2>", "<vibe3>"],
-  "vibeDescription": "<single punchy sentence capturing the feel>"
+  "vibeDescription": "<single punchy sentence capturing the feel>",
+  "cuisine": "<primary cuisine or drink style, e.g. Italian, Japanese, Cocktails, Wine Bar — restaurants/bars/cafes only, empty string otherwise>",
+  "tags": ["<tag1>", "<tag2>", "<tag3>"]
 }
 
 Rules:
 - Set found=false if you don't recognise this as a specific real NYC place.
 - priceLevel: 1=$, 2=$$, 3=$$$, 4=$$$$
-- vibes: up to 3 short descriptors like "cozy", "date night", "trendy", "loud", "outdoor", "late night", "brunch spot"
+- vibes: up to 3 short mood descriptors like "cozy", "date night", "trendy", "loud", "outdoor", "late night", "brunch spot"
 - vibeDescription: a single punchy sentence, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge" — always include this, never leave it empty
+- cuisine: the primary cuisine or concept for restaurants/cafes/bars (e.g. "Italian", "Ramen", "Cocktail Bar", "Wine Bar", "Brunch", "Korean BBQ"). Leave empty string for non-food venues.
+- tags: 3-6 short searchable descriptors capturing what makes this place special, e.g. ["rooftop", "outdoor seating", "late night", "cash only", "brunch", "tasting menu", "live music", "dive bar", "speakeasy", "happy hour", "BYOB", "omakase", "pet-friendly", "views"]. Pick tags that are genuinely useful for discovery. Never overlap with vibes exactly.
 - If found=false still try to fill all fields with reasonable guesses based on the name.`,
           },
           {
@@ -76,6 +80,8 @@ Rules:
       address: parsed.address ?? "",
       vibes: Array.isArray(parsed.vibes) ? parsed.vibes.slice(0, 3) : [],
       vibeDescription: parsed.vibeDescription ?? "",
+      cuisine: typeof parsed.cuisine === "string" ? parsed.cuisine : "",
+      tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8) : [],
     });
   } catch (err: any) {
     res.status(502).json({ error: err?.message ?? "Lookup failed" });

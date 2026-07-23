@@ -75,14 +75,17 @@ export default function PlaceDetailScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 32);
 
-  // ── Enrichment (auto-fetch vibe/address) ─────────────────────────────────
+  // ── Enrichment (auto-fetch vibe/address/cuisine/tags) ────────────────────
   const [enriching, setEnriching] = useState(false);
   const [localVibe, setLocalVibe] = useState<string | undefined>(undefined);
   const [localAddress, setLocalAddress] = useState<string | undefined>(undefined);
+  const [localCuisine, setLocalCuisine] = useState<string | undefined>(undefined);
+  const [localTags, setLocalTags] = useState<string[] | undefined>(undefined);
 
   useEffect(() => {
     if (!place || loading) return;
-    if (place.vibeDescription && place.address) return;
+    const needsEnrich = !place.vibeDescription || !place.address || !place.cuisine || !place.tags?.length;
+    if (!needsEnrich) return;
     setEnriching(true);
     fetch(`${BASE_URL()}/lookup-place`, {
       method: 'POST',
@@ -91,9 +94,11 @@ export default function PlaceDetailScreen() {
     })
       .then(r => r.json())
       .then(data => {
-        const patch: Record<string, string> = {};
+        const patch: Record<string, any> = {};
         if (!place.vibeDescription && data.vibeDescription) { patch.vibeDescription = data.vibeDescription; setLocalVibe(data.vibeDescription); }
         if (!place.address && data.address) { patch.address = data.address; setLocalAddress(data.address); }
+        if (!place.cuisine && data.cuisine) { patch.cuisine = data.cuisine; setLocalCuisine(data.cuisine); }
+        if ((!place.tags || !place.tags.length) && data.tags?.length) { patch.tags = data.tags; setLocalTags(data.tags); }
         if (Object.keys(patch).length > 0) updatePlace(place.id, patch);
       })
       .catch(() => {})
@@ -108,6 +113,10 @@ export default function PlaceDetailScreen() {
   const [draftPriceLevel, setDraftPriceLevel] = useState<BudgetLevel>(2);
   const [draftRating, setDraftRating] = useState<number | undefined>(undefined);
   const [draftNotes, setDraftNotes] = useState('');
+  const [draftCuisine, setDraftCuisine] = useState('');
+  const [draftTags, setDraftTags] = useState(''); // comma-separated
+
+  const FOOD_CATEGORIES: PlaceCategory[] = ['restaurant', 'bar', 'cafe'];
 
   const enterEdit = useCallback(() => {
     if (!place) return;
@@ -117,6 +126,8 @@ export default function PlaceDetailScreen() {
     setDraftPriceLevel(place.priceLevel);
     setDraftRating(place.rating);
     setDraftNotes(place.notes ?? '');
+    setDraftCuisine(place.cuisine ?? '');
+    setDraftTags((place.tags ?? []).join(', '));
     setEditing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [place]);
@@ -128,12 +139,18 @@ export default function PlaceDetailScreen() {
 
   const saveEdit = useCallback(() => {
     if (!place) return;
+    const parsedTags = draftTags
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
     const patch: Record<string, unknown> = {
       name: draftName.trim() || place.name,
       neighborhood: draftNeighborhood.trim() || place.neighborhood,
       category: draftCategory,
       priceLevel: draftPriceLevel,
       notes: draftNotes.trim() || undefined,
+      cuisine: draftCuisine.trim() || undefined,
+      tags: parsedTags.length > 0 ? parsedTags : undefined,
     };
     if (draftRating !== undefined && draftRating > 0) {
       patch.rating = draftRating;
@@ -144,7 +161,7 @@ export default function PlaceDetailScreen() {
     updatePlace(place.id, patch as any);
     setEditing(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [place, draftName, draftNeighborhood, draftCategory, draftPriceLevel, draftRating, draftNotes]);
+  }, [place, draftName, draftNeighborhood, draftCategory, draftPriceLevel, draftRating, draftNotes, draftCuisine, draftTags]);
 
   const handleDelete = useCallback(() => {
     if (!place) return;
@@ -161,7 +178,10 @@ export default function PlaceDetailScreen() {
 
   const vibeDescription = place?.vibeDescription ?? localVibe;
   const address = place?.address ?? localAddress;
+  const cuisine = place?.cuisine ?? localCuisine;
+  const tags = place?.tags ?? localTags;
   const iconName = place ? (CATEGORY_ICONS[place.category] ?? 'location') : 'location';
+  const FOOD_CATS: PlaceCategory[] = ['restaurant', 'bar', 'cafe'];
 
   // ── Loading / not found ───────────────────────────────────────────────────
   if (loading) {
@@ -297,6 +317,35 @@ export default function PlaceDetailScreen() {
             </View>
           </EditSection>
 
+          {/* Cuisine — food/drink venues only */}
+          {FOOD_CATEGORIES.includes(draftCategory) && (
+            <EditSection label="CUISINE" colors={colors}>
+              <TextInput
+                value={draftCuisine}
+                onChangeText={setDraftCuisine}
+                style={[styles.editInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, fontFamily: 'Inter_400Regular' }]}
+                placeholderTextColor={colors.mutedForeground}
+                placeholder="e.g. Italian, Ramen, Cocktail Bar"
+                returnKeyType="done"
+              />
+            </EditSection>
+          )}
+
+          {/* Tags */}
+          <EditSection label="TAGS" colors={colors}>
+            <TextInput
+              value={draftTags}
+              onChangeText={setDraftTags}
+              style={[styles.editInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, fontFamily: 'Inter_400Regular' }]}
+              placeholderTextColor={colors.mutedForeground}
+              placeholder="e.g. rooftop, outdoor, late night, live music"
+              returnKeyType="done"
+            />
+            <Text style={[styles.tagsHint, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              Comma-separated · used in search
+            </Text>
+          </EditSection>
+
           {/* Your rating */}
           <EditSection label="YOUR RATING" colors={colors}>
             <View style={[styles.ratingBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -390,6 +439,18 @@ export default function PlaceDetailScreen() {
               ))}
             </View>
           )}
+
+          {/* Place tags */}
+          {tags && tags.length > 0 && (
+            <View style={styles.vibeRow}>
+              {tags.map(t => (
+                <View key={t} style={[styles.vibeTag, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+                  <Ionicons name="pricetag-outline" size={10} color={colors.mutedForeground} style={{ marginRight: 2 }} />
+                  <Text style={[styles.vibeTagText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>{t}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Details */}
@@ -397,6 +458,27 @@ export default function PlaceDetailScreen() {
           <Row icon="location-outline" label="Neighborhood" value={place.neighborhood} colors={colors} />
           <Divider colors={colors} />
           <Row icon={iconName as any} label="Category" value={CATEGORY_LABELS[place.category]} colors={colors} />
+          {FOOD_CATS.includes(place.category) && (
+            <>
+              <Divider colors={colors} />
+              {cuisine ? (
+                <Row icon="restaurant-outline" label="Cuisine" value={cuisine} colors={colors} />
+              ) : enriching ? (
+                <View style={styles.row}>
+                  <View style={[styles.rowIcon, { backgroundColor: colors.muted }]}>
+                    <Ionicons name="restaurant-outline" size={15} color={colors.primary} />
+                  </View>
+                  <View style={styles.rowText}>
+                    <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>Cuisine</Text>
+                    <View style={styles.enrichingRow}>
+                      <ActivityIndicator size="small" color={colors.mutedForeground} style={{ transform: [{ scale: 0.65 }] }} />
+                      <Text style={[styles.enrichingText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>Looking up…</Text>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+            </>
+          )}
           <Divider colors={colors} />
           <Row
             icon="cash-outline"
@@ -569,6 +651,7 @@ const styles = StyleSheet.create({
     padding: 16, gap: 8, alignItems: 'flex-start',
   },
   ratingHint: { fontSize: 12, marginTop: 2 },
+  tagsHint: { fontSize: 11, marginTop: -4 },
   notesInput: {
     borderRadius: 12, borderWidth: 1,
     paddingHorizontal: 14, paddingVertical: 12,

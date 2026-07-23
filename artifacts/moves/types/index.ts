@@ -15,6 +15,8 @@ export interface Place {
   rating?: number;
   address?: string;
   notes?: string;
+  cuisine?: string;        // e.g. "Italian", "Japanese", "Mexican" — restaurants/cafes/bars
+  tags?: string[];         // searchable descriptors: "rooftop", "outdoor", "late night", etc.
   lat?: number;
   lng?: number;
   createdAt: string;

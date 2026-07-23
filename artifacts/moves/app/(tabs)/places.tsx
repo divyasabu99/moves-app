@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Alert, ActivityIndicator, Platform, Modal, ScrollView,
-  Animated, Pressable,
+  Animated, Pressable, TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -37,6 +37,15 @@ const PRICE_OPTIONS: { level: BudgetLevel; label: string }[] = [
   { level: 4, label: '$$$$' },
 ];
 
+const RATING_OPTIONS = [
+  { value: 0, label: 'Any' },
+  { value: 1, label: '1★+' },
+  { value: 2, label: '2★+' },
+  { value: 3, label: '3★+' },
+  { value: 4, label: '4★+' },
+  { value: 5, label: '5★' },
+];
+
 // ── Filter Sheet ──────────────────────────────────────────────────────────────
 function FilterSheet({
   visible,
@@ -49,6 +58,8 @@ function FilterSheet({
   setNeighborhoods,
   sort,
   setSort,
+  minRating,
+  setMinRating,
   allNeighborhoods,
   onClear,
 }: {
@@ -62,6 +73,8 @@ function FilterSheet({
   setNeighborhoods: (v: string[]) => void;
   sort: SortOrder;
   setSort: (v: SortOrder) => void;
+  minRating: number;
+  setMinRating: (v: number) => void;
   allNeighborhoods: string[];
   onClear: () => void;
 }) {
@@ -84,7 +97,8 @@ function FilterSheet({
     (category !== 'all' ? 1 : 0) +
     (prices.length > 0 ? 1 : 0) +
     (neighborhoods.length > 0 ? 1 : 0) +
-    (sort !== 'newest' ? 1 : 0);
+    (sort !== 'newest' ? 1 : 0) +
+    (minRating > 0 ? 1 : 0);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -202,6 +216,34 @@ function FilterSheet({
               })}
             </View>
 
+            {/* Rating */}
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
+              MINIMUM RATING
+            </Text>
+            <View style={styles.chipRow}>
+              {RATING_OPTIONS.map(opt => {
+                const active = minRating === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => { Haptics.selectionAsync(); setMinRating(opt.value); }}
+                    activeOpacity={0.75}
+                    style={[styles.filterChip, {
+                      backgroundColor: active ? colors.primary : colors.secondary,
+                      borderColor: active ? colors.primary : colors.border,
+                    }]}
+                  >
+                    <Text style={[styles.filterChipText, {
+                      color: active ? colors.primaryForeground : colors.foreground,
+                      fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                    }]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             {/* Neighborhoods */}
             {allNeighborhoods.length > 0 && (
               <>
@@ -259,10 +301,12 @@ export default function PlacesScreen() {
 
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [category, setCategory] = useState<CategoryKey>('all');
   const [prices, setPrices] = useState<BudgetLevel[]>([]);
   const [neighborhoods, setNeighborhoods] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOrder>('newest');
+  const [minRating, setMinRating] = useState(0);
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 16);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 100);
@@ -277,23 +321,39 @@ export default function PlacesScreen() {
     if (category !== 'all') result = result.filter(p => p.category === category);
     if (prices.length > 0) result = result.filter(p => prices.includes(p.priceLevel));
     if (neighborhoods.length > 0) result = result.filter(p => neighborhoods.includes(p.neighborhood));
+    if (minRating > 0) result = result.filter(p => p.rating !== undefined && p.rating >= minRating);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.neighborhood.toLowerCase().includes(q) ||
+        (p.address ?? '').toLowerCase().includes(q) ||
+        (p.vibeDescription ?? '').toLowerCase().includes(q) ||
+        p.vibes.some(v => v.toLowerCase().includes(q)) ||
+        (p.cuisine ?? '').toLowerCase().includes(q) ||
+        (p.tags ?? []).some(t => t.toLowerCase().includes(q)) ||
+        (p.notes ?? '').toLowerCase().includes(q)
+      );
+    }
     if (sort === 'oldest') result = [...result].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
     return result;
-  }, [places, category, prices, neighborhoods, sort]);
+  }, [places, category, prices, neighborhoods, sort, minRating, search]);
 
   const activeFilterCount =
     (category !== 'all' ? 1 : 0) +
     (prices.length > 0 ? 1 : 0) +
     (neighborhoods.length > 0 ? 1 : 0) +
-    (sort !== 'newest' ? 1 : 0);
+    (sort !== 'newest' ? 1 : 0) +
+    (minRating > 0 ? 1 : 0);
 
   const clearFilters = useCallback(() => {
     setCategory('all');
     setPrices([]);
     setNeighborhoods([]);
     setSort('newest');
+    setMinRating(0);
   }, []);
 
   const handleLongPress = (place: Place) => {
@@ -346,7 +406,28 @@ export default function PlacesScreen() {
           </View>
         </View>
 
-        {/* Row 2: View toggle + Filter button */}
+        {/* Row 2: Search bar */}
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: search ? colors.primary + '55' : colors.border }]}>
+          <Ionicons name="search-outline" size={16} color={search ? colors.primary : colors.mutedForeground} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search by name, tag, cuisine, address…"
+            placeholderTextColor={colors.mutedForeground}
+            style={[styles.searchInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
+            returnKeyType="search"
+            clearButtonMode="never"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Row 3: View toggle + Filter button */}
         <View style={styles.controlRow}>
           {/* List / Map toggle */}
           <View style={[styles.viewToggle, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
@@ -401,7 +482,7 @@ export default function PlacesScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Row 3: Category chips (list view only) */}
+        {/* Row 4: Category chips (list view only) */}
         {viewMode === 'list' && (
           <FlatList
             data={CATEGORY_OPTIONS}
@@ -521,8 +602,10 @@ export default function PlacesScreen() {
         setNeighborhoods={setNeighborhoods}
         sort={sort}
         setSort={setSort}
+        minRating={minRating}
+        setMinRating={setMinRating}
         allNeighborhoods={allNeighborhoods}
-        onClear={() => { setCategory('all'); setPrices([]); setNeighborhoods([]); setSort('newest'); }}
+        onClear={clearFilters}
       />
     </View>
   );
@@ -554,6 +637,14 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
+
+  // Search bar
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
+  searchInput: { flex: 1, fontSize: 14, padding: 0, height: 20 },
 
   // View toggle + filter row
   controlRow: {
