@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator, Alert,
+  TextInput, Platform, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,7 +69,7 @@ type Mode = 'form' | 'chat';
 export default function PlanScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, userId, logout, preferences } = useUser();
+  const { user, userId, preferences } = useUser();
 
   const DATE_OPTIONS = getDateOptions();
 
@@ -233,20 +233,7 @@ export default function PlanScreen() {
           <View style={styles.headerWeb}>
             <View style={styles.headerWebRow}>
               <TouchableOpacity
-                onPress={() => {
-                  Alert.alert(
-                    user?.displayName || 'Account',
-                    user?.email ?? '',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Sign Out',
-                        style: 'destructive',
-                        onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); logout(); },
-                      },
-                    ]
-                  );
-                }}
+                onPress={() => router.push('/settings')}
                 activeOpacity={0.7}
                 style={[styles.avatarBtn, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}
               >
@@ -287,20 +274,7 @@ export default function PlanScreen() {
           /* ── Mobile: original compact single-row layout ── */
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => {
-                Alert.alert(
-                  user?.displayName || 'Account',
-                  user?.email ?? '',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Sign Out',
-                      style: 'destructive',
-                      onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); logout(); },
-                    },
-                  ]
-                );
-              }}
+              onPress={() => router.push('/settings')}
               activeOpacity={0.7}
               style={[styles.avatarBtn, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}
             >

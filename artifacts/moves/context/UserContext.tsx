@@ -41,6 +41,7 @@ interface UserContextType {
   clearDevCode: () => void;
   completeOnboarding: (prefs: UserPreferences) => Promise<void>;
   updateDisplayName: (name: string) => void;
+  updatePreferences: (prefs: UserPreferences) => Promise<void>;
 
   // Legacy compat
   userId: string;
@@ -62,6 +63,7 @@ const UserContext = createContext<UserContextType>({
   clearDevCode: () => {},
   completeOnboarding: async () => {},
   updateDisplayName: () => {},
+  updatePreferences: async () => {},
   userId: '',
   displayName: '',
 });
@@ -167,6 +169,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(DISPLAY_NAME_KEY, name);
   }, [user]);
 
+  const updatePreferences = useCallback(async (prefs: UserPreferences) => {
+    await AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
+    setPreferences(prefs);
+  }, []);
+
   return (
     <UserContext.Provider value={{
       user,
@@ -183,6 +190,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       clearDevCode,
       completeOnboarding,
       updateDisplayName,
+      updatePreferences,
       userId: user?.userId ?? '',
       displayName: user?.displayName ?? '',
     }}>
