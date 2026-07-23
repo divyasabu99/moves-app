@@ -76,19 +76,23 @@ export function MovesProvider({ children }: { children: React.ReactNode }) {
         });
         if (!res.ok) return;
         const data = await res.json();
-        if (Array.isArray(data.moves) && data.moves.length > 0) {
-          const normalized = normalizeMoves(data.moves);
-          setMoves(normalized);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+        if (data.exists) {
+          // Server row exists — it is the source of truth (even if empty)
+          const serverMoves = Array.isArray(data.moves) ? normalizeMoves(data.moves) : [];
+          setMoves(serverMoves);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(serverMoves));
         } else {
+          // No server row yet — push local data up
           const stored = await AsyncStorage.getItem(STORAGE_KEY);
           const localMoves: Move[] = stored ? normalizeMoves(JSON.parse(stored)) : [];
-          if (localMoves.length > 0) {
-            await fetch(`${BASE_URL}/sync/moves`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ moves: localMoves }),
-            });
+          await fetch(`${BASE_URL}/sync/moves`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ moves: isNew ? [] : localMoves }),
+          });
+          if (isNew) {
+            setMoves([]);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
           }
         }
       } catch {

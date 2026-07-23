@@ -30,8 +30,9 @@ router.get("/sync/places", requireAuth, async (req: Request, res: Response) => {
       "SELECT places FROM user_places WHERE user_id = $1",
       [userId]
     );
+    const exists = result.rows.length > 0;
     const places = result.rows[0]?.places ?? [];
-    return res.json({ places });
+    return res.json({ places, exists });
   } catch (err) {
     console.error("sync/places GET error", err);
     return res.status(500).json({ error: "Failed to fetch places" });
@@ -70,8 +71,9 @@ router.get("/sync/moves", requireAuth, async (req: Request, res: Response) => {
       "SELECT moves FROM user_moves WHERE user_id = $1",
       [userId]
     );
+    const exists = result.rows.length > 0;
     const moves = result.rows[0]?.moves ?? [];
-    return res.json({ moves });
+    return res.json({ moves, exists });
   } catch (err) {
     console.error("sync/moves GET error", err);
     return res.status(500).json({ error: "Failed to fetch moves" });

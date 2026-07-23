@@ -63,29 +63,23 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
         });
         if (!res.ok) return;
         const data = await res.json();
-        if (Array.isArray(data.places) && data.places.length > 0) {
-          // Server has data — use it (returning user on a new device)
-          setPlaces(data.places);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data.places));
-        } else if (isNew) {
-          // Brand-new user — start with an empty library; push empty to server
-          setPlaces([]);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+        if (data.exists) {
+          // Server row exists — it is the source of truth (even if empty)
+          const serverPlaces: Place[] = Array.isArray(data.places) ? data.places : [];
+          setPlaces(serverPlaces);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(serverPlaces));
+        } else {
+          // No server row yet — first time this device syncs; push local data up
+          const stored = await AsyncStorage.getItem(STORAGE_KEY);
+          const localPlaces: Place[] = stored ? JSON.parse(stored) : [];
           await fetch(`${BASE_URL}/sync/places`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ places: [] }),
+            body: JSON.stringify({ places: isNew ? [] : localPlaces }),
           });
-        } else {
-          // Existing user re-installing — push whatever they have locally
-          const stored = await AsyncStorage.getItem(STORAGE_KEY);
-          const localPlaces: Place[] = stored ? JSON.parse(stored) : [];
-          if (localPlaces.length > 0) {
-            await fetch(`${BASE_URL}/sync/places`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ places: localPlaces }),
-            });
+          if (isNew) {
+            setPlaces([]);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
           }
         }
       } catch {
