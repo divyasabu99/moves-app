@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useUser } from '@/context/UserContext';
+import { useLocalSearchParams } from 'expo-router';
 
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const CODE_LEN = 6;
@@ -17,6 +18,7 @@ export default function VerifyEmailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, setVerified, logout } = useUser();
+  const params = useLocalSearchParams<{ devCode?: string }>();
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,6 +26,7 @@ export default function VerifyEmailScreen() {
   const [success, setSuccess] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [resending, setResending] = useState(false);
+  const [devCode, setDevCode] = useState<string | undefined>(params.devCode);
   const inputRef = useRef<TextInput>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -77,11 +80,13 @@ export default function VerifyEmailScreen() {
     if (!user || cooldown > 0) return;
     setResending(true);
     try {
-      await fetch(`${BASE_URL()}/auth/resend-code`, {
+      const res = await fetch(`${BASE_URL()}/auth/resend-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.userId }),
       });
+      const data = await res.json();
+      if (data.devCode) setDevCode(data.devCode);
       setCooldown(RESEND_COOLDOWN);
       setError('');
       setCode('');
@@ -162,6 +167,17 @@ export default function VerifyEmailScreen() {
           editable={!loading && !success}
         />
 
+        {/* Dev-mode code hint */}
+        {!!devCode && !success && (
+          <View style={[styles.devBox, { backgroundColor: '#1a1a00', borderColor: '#555500' }]}>
+            <Ionicons name="construct-outline" size={14} color="#cccc00" />
+            <Text style={[styles.devText, { fontFamily: 'Inter_400Regular' }]}>
+              No email service configured.{'\n'}Your code is:{' '}
+              <Text style={{ fontFamily: 'Inter_700Bold', letterSpacing: 3 }}>{devCode}</Text>
+            </Text>
+          </View>
+        )}
+
         {/* Error */}
         {!!error && (
           <View style={[styles.errorBox, { backgroundColor: colors.primary + '18', borderColor: colors.primary + '44' }]}>
@@ -207,6 +223,8 @@ const styles = StyleSheet.create({
   digitBox: { width: 44, height: 56, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   digitText: { fontSize: 24 },
   hiddenInput: { position: 'absolute', width: 1, height: 1, opacity: 0 },
+  devBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 10, borderWidth: 1, padding: 12, width: '100%' },
+  devText: { flex: 1, fontSize: 13, lineHeight: 19, color: '#cccc00' },
   successWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 20 },
   successText: { fontSize: 18 },
   errorBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 12, borderWidth: 1, padding: 12, width: '100%' },

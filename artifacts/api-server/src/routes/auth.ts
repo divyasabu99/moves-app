@@ -82,7 +82,11 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     await sendVerificationEmail(normalizedEmail, nameTrimmed, code).catch(() => {});
 
     const token = signToken(userId, nameTrimmed);
-    return res.status(201).json({ userId, displayName: nameTrimmed, token, emailVerified: false });
+    const isDev = !process.env.RESEND_API_KEY;
+    return res.status(201).json({
+      userId, displayName: nameTrimmed, token, emailVerified: false,
+      ...(isDev ? { devCode: code } : {}),
+    });
   } catch (err: any) {
     console.error("register error", err);
     return res.status(500).json({ error: "Registration failed" });
@@ -186,7 +190,8 @@ router.post("/auth/resend-code", async (req: Request, res: Response) => {
       [code, expires, userId]
     );
     await sendVerificationEmail(row.email, row.display_name, code).catch(() => {});
-    return res.json({ ok: true });
+    const isDev = !process.env.RESEND_API_KEY;
+    return res.json({ ok: true, ...(isDev ? { devCode: code } : {}) });
   } catch (err: any) {
     console.error("resend-code error", err);
     return res.status(500).json({ error: "Failed to resend code" });
