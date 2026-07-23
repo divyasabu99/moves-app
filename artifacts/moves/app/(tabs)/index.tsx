@@ -228,57 +228,115 @@ export default function PlanScreen() {
         onScrollBeginDrag={() => setOpenDropdown(null)}
       >
         {/* Header + mode toggle */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => {
-              Alert.alert(
-                user?.displayName || 'Account',
-                user?.email ?? '',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Sign Out',
-                    style: 'destructive',
-                    onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); logout(); },
-                  },
-                ]
-              );
-            }}
-            activeOpacity={0.7}
-            style={[styles.avatarBtn, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}
-          >
-            <Text style={[styles.avatarLetter, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
-              {(user?.displayName ?? 'M').charAt(0).toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
-              MOVES
-            </Text>
-          </View>
-          <View style={[styles.modeToggle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {(['form', 'chat'] as Mode[]).map(m => (
+        {Platform.OS === 'web' ? (
+          /* ── Web: two-row layout so the avatar is never crowded ── */
+          <View style={styles.headerWeb}>
+            <View style={styles.headerWebRow}>
               <TouchableOpacity
-                key={m}
-                onPress={() => { setMode(m); Haptics.selectionAsync(); }}
-                activeOpacity={0.8}
-                style={[styles.modeBtn, { backgroundColor: mode === m ? colors.primary : 'transparent' }]}
+                onPress={() => {
+                  Alert.alert(
+                    user?.displayName || 'Account',
+                    user?.email ?? '',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Sign Out',
+                        style: 'destructive',
+                        onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); logout(); },
+                      },
+                    ]
+                  );
+                }}
+                activeOpacity={0.7}
+                style={[styles.avatarBtn, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}
               >
-                <Ionicons
-                  name={m === 'form' ? 'options-outline' : 'chatbubble-outline'}
-                  size={15}
-                  color={mode === m ? colors.primaryForeground : colors.mutedForeground}
-                />
-                <Text style={[styles.modeBtnText, {
-                  color: mode === m ? colors.primaryForeground : colors.mutedForeground,
-                  fontFamily: mode === m ? 'Inter_600SemiBold' : 'Inter_400Regular',
-                }]}>
-                  {m === 'form' ? 'Form' : 'Chat'}
+                <Text style={[styles.avatarLetter, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
+                  {(user?.displayName ?? 'M').charAt(0).toUpperCase()}
                 </Text>
               </TouchableOpacity>
-            ))}
+              <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_700Bold', flex: 1, textAlign: 'center' }]}>
+                MOVES
+              </Text>
+              {/* Spacer mirrors the avatar width so the logo stays centred */}
+              <View style={{ width: 36 }} />
+            </View>
+            <View style={[styles.modeToggleWeb, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {(['form', 'chat'] as Mode[]).map(m => (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => { setMode(m); Haptics.selectionAsync(); }}
+                  activeOpacity={0.8}
+                  style={[styles.modeBtnWeb, { backgroundColor: mode === m ? colors.primary : 'transparent' }]}
+                >
+                  <Ionicons
+                    name={m === 'form' ? 'options-outline' : 'chatbubble-outline'}
+                    size={15}
+                    color={mode === m ? colors.primaryForeground : colors.mutedForeground}
+                  />
+                  <Text style={[styles.modeBtnText, {
+                    color: mode === m ? colors.primaryForeground : colors.mutedForeground,
+                    fontFamily: mode === m ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                  }]}>
+                    {m === 'form' ? 'Form' : 'Chat'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        ) : (
+          /* ── Mobile: original compact single-row layout ── */
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  user?.displayName || 'Account',
+                  user?.email ?? '',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Sign Out',
+                      style: 'destructive',
+                      onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); logout(); },
+                    },
+                  ]
+                );
+              }}
+              activeOpacity={0.7}
+              style={[styles.avatarBtn, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}
+            >
+              <Text style={[styles.avatarLetter, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
+                {(user?.displayName ?? 'M').charAt(0).toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
+                MOVES
+              </Text>
+            </View>
+            <View style={[styles.modeToggle, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {(['form', 'chat'] as Mode[]).map(m => (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => { setMode(m); Haptics.selectionAsync(); }}
+                  activeOpacity={0.8}
+                  style={[styles.modeBtn, { backgroundColor: mode === m ? colors.primary : 'transparent' }]}
+                >
+                  <Ionicons
+                    name={m === 'form' ? 'options-outline' : 'chatbubble-outline'}
+                    size={15}
+                    color={mode === m ? colors.primaryForeground : colors.mutedForeground}
+                  />
+                  <Text style={[styles.modeBtnText, {
+                    color: mode === m ? colors.primaryForeground : colors.mutedForeground,
+                    fontFamily: mode === m ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                  }]}>
+                    {m === 'form' ? 'Form' : 'Chat'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         {mode === 'chat' ? (
           <View style={styles.chatSection}>
@@ -818,10 +876,11 @@ const styles = StyleSheet.create({
   logo: { fontSize: 34, letterSpacing: 5 },
   tagline: { fontSize: 13, letterSpacing: 0.5, marginTop: 2 },
   avatarBtn: {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center', marginTop: 6,
+    width: 40, height: 40, borderRadius: 20, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
   },
   avatarLetter: { fontSize: 15 },
+  // Mobile header
   modeToggle: {
     flexDirection: 'row', borderRadius: 12, borderWidth: 1,
     padding: 3, gap: 2, marginTop: 6,
@@ -831,6 +890,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9,
   },
   modeBtnText: { fontSize: 13 },
+  // Web header — two rows
+  headerWeb: { paddingBottom: 20, gap: 14 },
+  headerWebRow: {
+    flexDirection: 'row', alignItems: 'center',
+  },
+  modeToggleWeb: {
+    flexDirection: 'row', borderRadius: 12, borderWidth: 1,
+    padding: 3, gap: 2, alignSelf: 'center',
+  },
+  modeBtnWeb: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 20, paddingVertical: 9, borderRadius: 9,
+  },
   section: { marginBottom: 20, gap: 10 },
   label: { fontSize: 11, letterSpacing: 1.5 },
   labelHint: { fontSize: 11, letterSpacing: 0.5 },
