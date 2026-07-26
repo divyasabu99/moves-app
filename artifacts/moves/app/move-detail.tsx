@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
 } from 'react-native';
@@ -11,6 +11,9 @@ import { useMoves } from '@/context/MovesContext';
 import { useUser } from '@/context/UserContext';
 import { Stop, TransitMode, BudgetLevel } from '@/types';
 import { CATEGORY_LABELS, CATEGORY_ICONS } from '@/lib/itinerary';
+import { ShareMoveSheet } from '@/components/ShareMoveSheet';
+
+const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -97,6 +100,24 @@ export default function MoveDetailScreen() {
   const { user } = useUser();
 
   const move = moves.find(m => m.id === id);
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [shareRecipientCount, setShareRecipientCount] = useState(0);
+
+  // Load share stats when screen mounts (non-blocking)
+  useEffect(() => {
+    if (!move || !user?.token) return;
+    fetch(`${BASE_URL()}/share/stats/${move.id}`, {
+      headers: { Authorization: `Bearer ${user.token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: any) => { if (d?.shared) setShareRecipientCount(d.recipientCount ?? 0); })
+      .catch(() => {}); // non-critical
+  }, [move?.id, user?.token]);
+
+  const handleShared = useCallback((_token: string, _url: string, count: number) => {
+    setShareRecipientCount(prev => prev + count);
+  }, []);
+
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 48);
 
@@ -172,9 +193,14 @@ export default function MoveDetailScreen() {
             </View>
           )}
         </View>
-        <TouchableOpacity onPress={handleDelete} style={styles.headerBtn} activeOpacity={0.7}>
-          <Ionicons name="trash-outline" size={20} color={colors.mutedForeground} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => setShowShareSheet(true)} style={styles.headerBtn} activeOpacity={0.7}>
+            <Ionicons name="paper-plane-outline" size={20} color={colors.mutedForeground} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDelete} style={styles.headerBtn} activeOpacity={0.7}>
+            <Ionicons name="trash-outline" size={20} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -186,6 +212,18 @@ export default function MoveDetailScreen() {
           <Text style={[styles.heroTitle, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>
             {move.title}
           </Text>
+          {shareRecipientCount > 0 && (
+            <TouchableOpacity
+              onPress={() => setShowShareSheet(true)}
+              activeOpacity={0.7}
+              style={[styles.sharedPill, { backgroundColor: '#5B9CF622', borderColor: '#5B9CF644' }]}
+            >
+              <Ionicons name="paper-plane-outline" size={12} color="#5B9CF6" />
+              <Text style={[styles.sharedPillText, { color: '#5B9CF6', fontFamily: 'Inter_500Medium' }]}>
+                Shared with {shareRecipientCount} {shareRecipientCount === 1 ? 'person' : 'people'}
+              </Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.heroMeta}>
             <View style={styles.metaItem}>
               <Ionicons name="calendar-outline" size={14} color={colors.mutedForeground} />
@@ -419,6 +457,17 @@ export default function MoveDetailScreen() {
 
         {/* ── Action ── */}
         <TouchableOpacity
+          onPress={() => setShowShareSheet(true)}
+          activeOpacity={0.85}
+          style={[styles.shareBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <Ionicons name="paper-plane-outline" size={17} color={colors.foreground} />
+          <Text style={[styles.shareBtnText, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
+            Share this move
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={handleToggleDone}
           activeOpacity={0.85}
           style={[styles.doneBtn, {
@@ -439,6 +488,13 @@ export default function MoveDetailScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <ShareMoveSheet
+        move={move}
+        visible={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        onShared={handleShared}
+      />
     </View>
   );
 }
@@ -466,6 +522,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1,
   },
   headerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerActions: { flexDirection: 'row', gap: 4 },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   vibePill: {
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1,
@@ -579,6 +636,20 @@ const styles = StyleSheet.create({
   transitText: { fontSize: 12 },
 
   endLabel: { fontSize: 13, marginLeft: 8, marginTop: 4 },
+
+  // Shared pill
+  sharedPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1,
+  },
+  sharedPillText: { fontSize: 12 },
+
+  // Share button
+  shareBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 1,
+  },
+  shareBtnText: { fontSize: 15 },
 
   // Done button
   doneBtn: {

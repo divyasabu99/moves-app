@@ -1,8 +1,9 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { pool } from "@workspace/db";
 
 const app: Express = express();
 
@@ -22,6 +23,8 @@ app.use(
           statusCode: res.statusCode,
         };
       },
+
+  const { token } = req.params;
     },
   }),
 );
@@ -37,3 +40,26 @@ app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use("/api", router);
 
 export default app;
+
+    const stopsHtml = (move.stops ?? []).map((stop: any, i: number) => `
+      <div class="stop">
+        <div class="stop-num">${i + 1}</div>
+        <div class="stop-info">
+          <strong>${stop.place?.name ?? "Stop"}</strong>
+          <span>${stop.place?.neighborhood ?? ""}</span>
+        </div>
+      </div>`).join("");
+
+    const row = await pool.query(
+      `SELECT t.move_data, u.display_name AS shared_by
+       FROM moves_share_tokens t
+       LEFT JOIN moves_users u ON u.id = t.created_by
+       WHERE t.token = $1`,
+      [token],
+    );
+
+    const move = row.rows[0].move_data as any;
+
+    const sharedBy: string = row.rows[0].shared_by ?? "Someone";
+
+    const deepLink = `moves://shared/${token}`;
