@@ -36,17 +36,20 @@ pnpm --filter @workspace/moves run dev
 
 ## Pushing changes to GitHub
 
-From the **Replit Git panel** — commit your changes and click **Push**.
+> **Note:** The `main` branch is protected. Direct pushes to `main` are blocked — all changes must go through a pull request.
 
-From the **terminal** — one command syncs the current branch:
+From the **Replit Git panel** — commit your changes on a feature branch and click **Push**, then open a PR on GitHub.
 
-```bash
-git push origin main
-```
-
-If you are on a feature branch and want to open a pull request:
+From the **terminal**:
 
 ```bash
+# Create and switch to a feature branch
+git checkout -b your-feature-branch
+
+# Make your changes, then commit
+git add .
+git commit -m "describe your change"
+
 # Push the feature branch
 git push origin your-feature-branch
 
@@ -55,10 +58,10 @@ git push origin your-feature-branch
 
 ## Contributing
 
-1. Create a feature branch off `main`.
+1. Create a feature branch off `main` — never commit directly to `main`.
 2. Make your changes and commit with a clear message.
 3. Push the branch and open a pull request against `main`.
 4. Request a review and address any feedback.
-5. Merge once approved.
+5. Merge once the PR is approved and all checks pass.
 
 Keep commits focused — one logical change per commit makes history easier to read and revert if needed.
