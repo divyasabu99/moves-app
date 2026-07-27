@@ -330,48 +330,42 @@ export default function GroupMoveDetailScreen() {
           </View>
         </View>
 
-        {/* ── Vote bar (all members except creator) ── */}
-        {!isCreator && (
-          <View style={[styles.voteBar, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 20, marginTop: 12 }]}>
-            <TouchableOpacity
-              onPress={() => handleVote('up')}
-              activeOpacity={0.75}
-              disabled={voting}
-              style={[styles.voteBtn, myVote === 'up' && { backgroundColor: '#4ade8022' }]}
-            >
-              <Ionicons
-                name={myVote === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={20}
-                color={myVote === 'up' ? '#4ade80' : colors.mutedForeground}
-              />
-              {upCount > 0 && (
-                <Text style={[styles.voteCount, { color: myVote === 'up' ? '#4ade80' : colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
-                  {upCount}
-                </Text>
-              )}
-            </TouchableOpacity>
+        {/* ── Vote bar (visible to all; creator sees read-only counts) ── */}
+        <View style={[styles.voteBar, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 20, marginTop: 12 }]}>
+          <TouchableOpacity
+            onPress={() => !isCreator && handleVote('up')}
+            activeOpacity={isCreator ? 1 : 0.75}
+            disabled={voting}
+            style={[styles.voteBtn, myVote === 'up' && { backgroundColor: '#4ade8022' }]}
+          >
+            <Ionicons
+              name={myVote === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+              size={20}
+              color={myVote === 'up' ? '#4ade80' : colors.mutedForeground}
+            />
+            <Text style={[styles.voteCount, { color: myVote === 'up' ? '#4ade80' : colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
+              {upCount}
+            </Text>
+          </TouchableOpacity>
 
-            <View style={[styles.voteDivider, { backgroundColor: colors.border }]} />
+          <View style={[styles.voteDivider, { backgroundColor: colors.border }]} />
 
-            <TouchableOpacity
-              onPress={() => handleVote('down')}
-              activeOpacity={0.75}
-              disabled={voting}
-              style={[styles.voteBtn, myVote === 'down' && { backgroundColor: '#f8717122' }]}
-            >
-              <Ionicons
-                name={myVote === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
-                size={20}
-                color={myVote === 'down' ? '#f87171' : colors.mutedForeground}
-              />
-              {downCount > 0 && (
-                <Text style={[styles.voteCount, { color: myVote === 'down' ? '#f87171' : colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
-                  {downCount}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+          <TouchableOpacity
+            onPress={() => !isCreator && handleVote('down')}
+            activeOpacity={isCreator ? 1 : 0.75}
+            disabled={voting}
+            style={[styles.voteBtn, myVote === 'down' && { backgroundColor: '#f8717122' }]}
+          >
+            <Ionicons
+              name={myVote === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+              size={20}
+              color={myVote === 'down' ? '#f87171' : colors.mutedForeground}
+            />
+            <Text style={[styles.voteCount, { color: myVote === 'down' ? '#f87171' : colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
+              {downCount}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* ── Itinerary ── */}
         <View style={[styles.section, { borderBottomColor: colors.border }]}>
