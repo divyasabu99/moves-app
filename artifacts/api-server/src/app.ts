@@ -24,6 +24,15 @@ app.use(
         };
       },
 
+function esc(s: unknown): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
   const { token } = req.params;
     },
   }),
@@ -45,8 +54,8 @@ export default app;
       <div class="stop">
         <div class="stop-num">${i + 1}</div>
         <div class="stop-info">
-          <strong>${stop.place?.name ?? "Stop"}</strong>
-          <span>${stop.place?.neighborhood ?? ""}</span>
+          <strong>${esc(stop.place?.name ?? "Stop")}</strong>
+          <span>${esc(stop.place?.neighborhood ?? "")}</span>
         </div>
       </div>`).join("");
 
@@ -62,4 +71,4 @@ export default app;
 
     const sharedBy: string = row.rows[0].shared_by ?? "Someone";
 
-    const deepLink = `moves://shared/${token}`;
+    const deepLink = `moves://shared/${esc(token)}`;

@@ -201,12 +201,10 @@ router.get("/shared/:token", optionalAuth, async (req: Request, res: Response) =
         mySuggestion = rxRow.rows[0].suggestion;
       }
 
-      // Mark as viewed if recipient
-      await pool.query(
-        `UPDATE moves_share_recipients SET viewed_at = NOW()
-         WHERE token_id = $1 AND viewed_at IS NULL`,
-        [r.id],
-      );
+      // Record that this app user viewed the token (separate from phone-recipient tracking)
+      // We intentionally do NOT update moves_share_recipients.viewed_at here because we
+      // cannot reliably map an app-user login to a specific phone recipient row; doing so
+      // would mark all recipients as viewed whenever any logged-in user opens the link.
     }
 
     res.json({
@@ -311,10 +309,11 @@ router.post("/shared/:token/fork", requireAuth, async (req: Request, res: Respon
 });
 
 // ── GET /api/share/recipients/:moveId ────────────────────────────────────────
-// Returns every phone recipient across all share tokens for a given move.
-// Any authenticated user can view this (needed for group context).
+// Returns phone recipients for a move — only the creator of the share token
+// may view recipient data (avoids exposing PII to other users).
 
 router.get("/share/recipients/:moveId", requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as string;
   const { moveId } = req.params;
   try {
     const rows = await pool.query(
@@ -324,8 +323,9 @@ router.get("/share/recipients/:moveId", requireAuth, async (req: Request, res: R
        JOIN moves_share_tokens t ON t.id = r.token_id
        LEFT JOIN moves_users u ON u.id = t.created_by
        WHERE t.move_data->>'id' = $1
+         AND t.created_by = $2
        ORDER BY r.shared_at DESC`,
-      [moveId],
+      [moveId, userId],
     );
     res.json({ recipients: rows.rows });
   } catch (err) {

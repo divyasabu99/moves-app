@@ -36,7 +36,7 @@ pnpm --filter @workspace/moves run dev
 
 ## Pushing changes to GitHub
 
-> **Note:** The `main` branch is protected. Direct pushes to `main` are blocked — all changes must go through a pull request.
+> **Note:** The `main` branch is protected via GitHub branch protection rules. Direct pushes are blocked at the repository level — all changes must go through a pull request with at least one approving review. Force-pushes and branch deletions are also disabled.
 
 From the **Replit Git panel** — commit your changes on a feature branch and click **Push**, then open a PR on GitHub.
 
