@@ -73,7 +73,8 @@ function RootLayoutNav() {
         <Stack.Screen name="receipt"     options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="settings"    options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="shared/[token]" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="s/[token]"      options={{ headerShown: false }} />
+        <Stack.Screen name="s/[token]"          options={{ headerShown: false }} />
+        <Stack.Screen name="group-move-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>
   );

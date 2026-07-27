@@ -27,13 +27,13 @@ function timeAgo(iso: string): string {
 }
 
 function SharedMoveCard({
-  item, isMine, groupId, onDelete,
-}: { item: SharedMove; isMine: boolean; groupId: string; onDelete: () => void }) {
+  item, isMine, groupId, onDelete, onPress,
+}: { item: SharedMove; isMine: boolean; groupId: string; onDelete: () => void; onPress: () => void }) {
   const colors = useColors();
   const dateLabel = new Date(item.move.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   return (
-    <View style={[styles.sharedCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={[styles.sharedCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.sharedTop}>
         <View style={styles.sharedTopLeft}>
           <Text style={[styles.sharedVibe, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>
@@ -44,7 +44,7 @@ function SharedMoveCard({
           </Text>
         </View>
         {isMine && (
-          <TouchableOpacity onPress={onDelete} activeOpacity={0.7} style={styles.deleteBtn}>
+          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); onDelete(); }} activeOpacity={0.7} style={styles.deleteBtn}>
             <Ionicons name="trash-outline" size={16} color={colors.mutedForeground} />
           </TouchableOpacity>
         )}
@@ -89,7 +89,7 @@ function SharedMoveCard({
       </View>
       {/* Split Bill button */}
       <TouchableOpacity
-        onPress={() => router.push({ pathname: '/receipt', params: { shareId: item.id, groupId } })}
+        onPress={(e) => { e.stopPropagation?.(); router.push({ pathname: '/receipt', params: { shareId: item.id, groupId } }); }}
         activeOpacity={0.75}
         style={[styles.splitBtn, { borderTopColor: colors.border }]}
       >
@@ -99,7 +99,7 @@ function SharedMoveCard({
         </Text>
         <Ionicons name="chevron-forward" size={14} color={colors.primary} style={{ marginLeft: 'auto' }} />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -258,6 +258,10 @@ export default function GroupDetailScreen() {
                   item={item}
                   isMine={item.sharedBy.id === userId}
                   groupId={id ?? ''}
+                  onPress={() => router.push({
+                    pathname: '/group-move-detail',
+                    params: { shareId: item.id, groupId: id },
+                  })}
                   onDelete={() => {
                     Alert.alert('Remove Move', 'Remove this move from the group?', [
                       { text: 'Cancel', style: 'cancel' },

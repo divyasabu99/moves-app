@@ -310,6 +310,30 @@ router.post("/shared/:token/fork", requireAuth, async (req: Request, res: Respon
   }
 });
 
+// ── GET /api/share/recipients/:moveId ────────────────────────────────────────
+// Returns every phone recipient across all share tokens for a given move.
+// Any authenticated user can view this (needed for group context).
+
+router.get("/share/recipients/:moveId", requireAuth, async (req: Request, res: Response) => {
+  const { moveId } = req.params;
+  try {
+    const rows = await pool.query(
+      `SELECT r.phone, r.shared_at, r.viewed_at,
+              u.display_name AS sent_by
+       FROM moves_share_recipients r
+       JOIN moves_share_tokens t ON t.id = r.token_id
+       LEFT JOIN moves_users u ON u.id = t.created_by
+       WHERE t.move_data->>'id' = $1
+       ORDER BY r.shared_at DESC`,
+      [moveId],
+    );
+    res.json({ recipients: rows.rows });
+  } catch (err) {
+    console.error("[share] GET /share/recipients/:moveId error:", err);
+    res.status(500).json({ error: "Failed to load recipients" });
+  }
+});
+
 // ── GET /api/share/stats/:moveId ──────────────────────────────────────────────
 // Returns share stats for a move the current user created
 
