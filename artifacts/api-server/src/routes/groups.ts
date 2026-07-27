@@ -346,6 +346,53 @@ router.post("/groups/:id/sync-places", async (req, res) => {
   }
 });
 
+// GET /api/users/lookup?email= — check if an email belongs to a MOVES user
+router.get("/users/lookup", async (req, res) => {
+  const { email } = req.query as { email?: string };
+  if (!email?.trim()) { res.status(400).json({ error: "email required" }); return; }
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, display_name FROM moves_users WHERE LOWER(email) = $1",
+      [email.trim().toLowerCase()]
+    );
+    if (rows.length === 0) { res.json({ found: false }); return; }
+    res.json({ found: true, userId: rows[0].id, displayName: rows[0].display_name });
+  } catch (err) {
+    console.error("user lookup error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /api/groups/:id/members — any member can add another user by userId
+router.post("/groups/:id/members", async (req, res) => {
+  const { id } = req.params;
+  const { userId, targetUserId } = req.body as { userId?: string; targetUserId?: string };
+  if (!userId || !targetUserId) { res.status(400).json({ error: "userId and targetUserId required" }); return; }
+  try {
+    // Caller must be a member
+    const { rows: mem } = await pool.query(
+      "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
+      [id, userId]
+    );
+    if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
+    // Target user must exist
+    const { rows: target } = await pool.query(
+      "SELECT id, display_name FROM moves_users WHERE id=$1",
+      [targetUserId]
+    );
+    if (target.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+    // Add (ignore if already a member)
+    await pool.query(
+      `INSERT INTO moves_group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [id, targetUserId]
+    );
+    res.status(201).json({ ok: true, displayName: target[0].display_name });
+  } catch (err) {
+    console.error("group member add error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // PATCH /api/groups/:id — rename group (leader only)
 router.patch("/groups/:id", async (req, res) => {
   const { id } = req.params;

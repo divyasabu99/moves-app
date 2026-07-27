@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity,
-  Platform, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView,
+  Platform, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import * as Contacts from 'expo-contacts';
 import { useColors } from '@/hooks/useColors';
 import { useUser } from '@/context/UserContext';
 import { useMoves } from '@/context/MovesContext';
@@ -120,6 +121,13 @@ export default function GroupDetailScreen() {
   const [renameText, setRenameText] = useState('');
   const [renaming, setRenaming] = useState(false);
 
+  // Contacts picker
+  const [contactsVisible, setContactsVisible] = useState(false);
+  const [contacts, setContacts] = useState<Contacts.ExistingContact[]>([]);
+  const [contactsSearch, setContactsSearch] = useState('');
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [addingContact, setAddingContact] = useState<string | null>(null); // contactId being added
+
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 32);
 
@@ -191,6 +199,93 @@ export default function GroupDetailScreen() {
         },
       ]
     );
+  };
+
+  const openContactsPicker = async () => {
+    if (Platform.OS === 'web') {
+      // Web: just copy invite code
+      await Clipboard.setStringAsync(group?.inviteCode ?? '');
+      Alert.alert('Invite code copied', `Share the code "${group?.inviteCode}" with friends so they can join.`);
+      return;
+    }
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Contacts access needed', 'Allow contacts access in Settings so you can invite friends directly.');
+      return;
+    }
+    setContactsLoading(true);
+    setContactsVisible(true);
+    try {
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.Name, Contacts.Fields.Emails],
+        sort: Contacts.SortTypes.FirstName,
+      });
+      // Only show contacts that have at least one email
+      setContacts(data.filter(c => c.emails && c.emails.length > 0));
+    } catch {
+      Alert.alert('Error', 'Could not load contacts.');
+      setContactsVisible(false);
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  const filteredContacts = useMemo(() => {
+    const q = contactsSearch.trim().toLowerCase();
+    if (!q) return contacts;
+    return contacts.filter(c =>
+      (c.name ?? '').toLowerCase().includes(q) ||
+      (c.emails ?? []).some((e: Contacts.Email) => e.email?.toLowerCase().includes(q))
+    );
+  }, [contacts, contactsSearch]);
+
+  const alreadyMemberIds = useMemo(() => new Set(group?.members.map(m => m.id) ?? []), [group?.members]);
+
+  const handleInviteContact = async (contact: Contacts.ExistingContact) => {
+    const email = contact.emails?.[0]?.email;
+    if (!email || !group || !userId) return;
+
+    const contactKey = contact.id ?? email;
+    setAddingContact(contactKey);
+    try {
+      // Look up whether this email is a MOVES user
+      const lookupRes = await fetch(
+        `${BASE_URL()}/users/lookup?email=${encodeURIComponent(email)}`
+      );
+      const lookup = await lookupRes.json();
+
+      if (lookup.found) {
+        if (alreadyMemberIds.has(lookup.userId)) {
+          Alert.alert('Already a member', `${lookup.displayName} is already in the group.`);
+          return;
+        }
+        // Add them directly
+        const addRes = await fetch(`${BASE_URL()}/groups/${id}/members`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, targetUserId: lookup.userId }),
+        });
+        if (addRes.ok) {
+          await fetchAll();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert('Added!', `${lookup.displayName} has been added to the group.`);
+        } else {
+          const j = await addRes.json();
+          Alert.alert('Error', j.error ?? 'Could not add member.');
+        }
+      } else {
+        // Not on MOVES — share invite via native share sheet
+        setContactsVisible(false);
+        await Share.share({
+          message: `Join my group on MOVES! Use invite code: ${group.inviteCode}`,
+          title: `Join ${group.name} on MOVES`,
+        });
+      }
+    } catch {
+      Alert.alert('Error', 'Something went wrong. Try again.');
+    } finally {
+      setAddingContact(null);
+    }
   };
 
   const handleRename = async () => {
@@ -362,7 +457,20 @@ export default function GroupDetailScreen() {
           )}
         </>
       ) : (
-        <FlatList
+        <>
+          {/* Add Members button */}
+          <TouchableOpacity
+            onPress={openContactsPicker}
+            activeOpacity={0.85}
+            style={[styles.addMembersBtn, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 16, marginTop: 12 }]}
+          >
+            <Ionicons name="person-add-outline" size={18} color={colors.primary} />
+            <Text style={[styles.addMembersBtnText, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>
+              Add Members
+            </Text>
+          </TouchableOpacity>
+
+          <FlatList
           data={group.members}
           keyExtractor={m => m.id}
           contentContainerStyle={[styles.list, { paddingBottom: botPad }]}
@@ -403,7 +511,93 @@ export default function GroupDetailScreen() {
             );
           }}
         />
+        </>
       )}
+
+      {/* Contacts picker modal */}
+      <Modal visible={contactsVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setContactsVisible(false)}>
+        <View style={[styles.contactsModal, { backgroundColor: colors.background }]}>
+          {/* Header */}
+          <View style={[styles.contactsHeader, { borderBottomColor: colors.border, paddingTop: insets.top + 16 }]}>
+            <Text style={[styles.contactsTitle, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>Add Members</Text>
+            <TouchableOpacity onPress={() => setContactsVisible(false)} activeOpacity={0.7} style={styles.contactsCloseBtn}>
+              <Ionicons name="close" size={22} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Search */}
+          <View style={[styles.contactsSearchWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
+            <TextInput
+              value={contactsSearch}
+              onChangeText={setContactsSearch}
+              placeholder="Search contacts..."
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.contactsSearchInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
+              autoCorrect={false}
+            />
+            {contactsSearch.length > 0 && (
+              <TouchableOpacity onPress={() => setContactsSearch('')} activeOpacity={0.7}>
+                <Ionicons name="close-circle" size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {contactsLoading ? (
+            <View style={styles.contactsCenter}>
+              <ActivityIndicator color={colors.primary} size="large" />
+              <Text style={[{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', marginTop: 10, fontSize: 14 }]}>Loading contacts…</Text>
+            </View>
+          ) : filteredContacts.length === 0 ? (
+            <View style={styles.contactsCenter}>
+              <Ionicons name="people-outline" size={40} color={colors.mutedForeground} />
+              <Text style={[{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', marginTop: 10, fontSize: 14, textAlign: 'center' }]}>
+                {contactsSearch ? 'No contacts match your search.' : 'No contacts with email addresses found.'}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredContacts}
+              keyExtractor={c => c.id ?? c.name ?? ''}
+              contentContainerStyle={{ paddingVertical: 8, paddingBottom: insets.bottom + 20 }}
+              renderItem={({ item }) => {
+                const email = item.emails?.[0]?.email ?? '';
+                const contactKey = item.id ?? email;
+                const isAdding = addingContact === contactKey;
+                return (
+                  <TouchableOpacity
+                    onPress={() => !isAdding && handleInviteContact(item)}
+                    activeOpacity={0.75}
+                    style={[styles.contactRow, { borderBottomColor: colors.border }]}
+                  >
+                    <View style={[styles.contactAvatar, { backgroundColor: colors.primary + '22' }]}>
+                      <Text style={[styles.contactAvatarText, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
+                        {(item.name ?? '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.contactInfo}>
+                      <Text style={[styles.contactName, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={[styles.contactEmail, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
+                        {email}
+                      </Text>
+                    </View>
+                    {isAdding ? (
+                      <ActivityIndicator color={colors.primary} size="small" />
+                    ) : (
+                      <View style={[styles.inviteChip, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}>
+                        <Ionicons name="person-add-outline" size={13} color={colors.primary} />
+                        <Text style={[styles.inviteChipText, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>Invite</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
+        </View>
+      </Modal>
 
       {/* Rename modal */}
       <Modal visible={renameVisible} animationType="fade" transparent onRequestClose={() => setRenameVisible(false)}>
@@ -587,6 +781,43 @@ const styles = StyleSheet.create({
   renameActions: { flexDirection: 'row', gap: 10 },
   renameBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 13, borderRadius: 12 },
   renameBtnText: { fontSize: 15 },
+  // Add Members button
+  addMembersBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginBottom: 4,
+  },
+  addMembersBtnText: { fontSize: 14 },
+
+  // Contacts modal
+  contactsModal: { flex: 1 },
+  contactsHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1,
+  },
+  contactsTitle: { fontSize: 18 },
+  contactsCloseBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  contactsSearchWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginVertical: 12,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10,
+  },
+  contactsSearchInput: { flex: 1, fontSize: 15 },
+  contactsCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
+  contactRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  contactAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  contactAvatarText: { fontSize: 17 },
+  contactInfo: { flex: 1 },
+  contactName: { fontSize: 15 },
+  contactEmail: { fontSize: 12, marginTop: 1 },
+  inviteChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
+  },
+  inviteChipText: { fontSize: 12 },
+
   // FAB
   fab: {
     position: 'absolute', right: 20, flexDirection: 'row', alignItems: 'center',
