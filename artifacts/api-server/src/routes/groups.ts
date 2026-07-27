@@ -238,6 +238,37 @@ router.get("/groups/:id/moves", optionalAuth, async (req, res) => {
   }
 });
 
+// ── GET /api/groups/:id/moves/:shareId — single shared move ──────────────────
+router.get("/groups/:id/moves/:shareId", optionalAuth, async (req, res) => {
+  const { id, shareId } = req.params;
+  const userId = (req as any).userId ?? (req.query as any).userId ?? null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT sm.id, sm.move_data, sm.shared_at, u.id AS user_id, u.display_name,
+              COUNT(CASE WHEN v.vote = 'up'   THEN 1 END)::int AS up_count,
+              COUNT(CASE WHEN v.vote = 'down' THEN 1 END)::int AS down_count,
+              MAX(CASE WHEN v.user_id = $3 THEN v.vote END) AS my_vote
+       FROM moves_shared_moves sm
+       JOIN moves_users u ON u.id = sm.user_id
+       LEFT JOIN moves_group_move_votes v ON v.share_id = sm.id
+       WHERE sm.id = $1 AND sm.group_id = $2
+       GROUP BY sm.id, sm.move_data, sm.shared_at, u.id, u.display_name`,
+      [shareId, id, userId]
+    );
+    if (rows.length === 0) { res.status(404).json({ error: "Not found" }); return; }
+    const r = rows[0];
+    res.json({
+      id: r.id, move: r.move_data,
+      sharedBy: { id: r.user_id, displayName: r.display_name },
+      sharedAt: r.shared_at,
+      votes: { upCount: r.up_count ?? 0, downCount: r.down_count ?? 0, myVote: r.my_vote ?? null },
+    });
+  } catch (err) {
+    console.error("group single move GET error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // ── POST /api/groups/:id/moves/:shareId/vote ──────────────────────────────────
 // Vote up or down; creator is blocked. Same-vote toggled off.
 router.post("/groups/:id/moves/:shareId/vote", requireAuth, async (req, res) => {

@@ -5,7 +5,7 @@
  * it to more people from here.
  *
  * Route params:
- *   data    — JSON-serialised SharedMove
+ *   shareId — ID of the shared move (fetched from API to avoid large-param iOS crash)
  *   groupId — the group this move belongs to
  */
 
@@ -124,25 +124,46 @@ export default function GroupMoveDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
-  const params = useLocalSearchParams<{ data: string; groupId: string }>();
+  const params = useLocalSearchParams<{ shareId: string; groupId: string }>();
+  const groupId = params.groupId;
+  const shareId = params.shareId;
 
-  // Deserialise move from params
-  const shared: SharedMove | null = useMemo(() => {
-    try { return JSON.parse(params.data) as SharedMove; } catch { return null; }
-  }, [params.data]);
+  // Fetch shared move from API (avoids large JSON in nav params which breaks on iOS)
+  const [shared, setShared] = useState<SharedMove | null>(null);
+  const [loadingShared, setLoadingShared] = useState(true);
+
+  useEffect(() => {
+    if (!shareId || !groupId) return;
+    const token = user?.token ?? '';
+    fetch(`${BASE_URL()}/groups/${groupId}/moves/${shareId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setShared(data as SharedMove); })
+      .catch(() => {})
+      .finally(() => setLoadingShared(false));
+  }, [shareId, groupId, user?.token]);
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [recipientsLoading, setRecipientsLoading] = useState(true);
   const [showShareSheet, setShowShareSheet] = useState(false);
 
   // ── Voting ─────────────────────────────────────────────────────────────────
-  const [upCount, setUpCount] = useState(shared?.votes?.upCount ?? 0);
-  const [downCount, setDownCount] = useState(shared?.votes?.downCount ?? 0);
-  const [myVote, setMyVote] = useState<'up' | 'down' | null>(shared?.votes?.myVote ?? null);
+  const [upCount, setUpCount] = useState(0);
+  const [downCount, setDownCount] = useState(0);
+  const [myVote, setMyVote] = useState<'up' | 'down' | null>(null);
   const [voting, setVoting] = useState(false);
 
+  // Sync vote counts when shared data loads
+  useEffect(() => {
+    if (shared?.votes) {
+      setUpCount(shared.votes.upCount ?? 0);
+      setDownCount(shared.votes.downCount ?? 0);
+      setMyVote(shared.votes.myVote ?? null);
+    }
+  }, [shared]);
+
   const isCreator = !!user?.userId && !!shared && user.userId === shared.sharedBy.id;
-  const groupId = params.groupId;
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 48);
@@ -236,7 +257,7 @@ export default function GroupMoveDetailScreen() {
     }
   }, [user, shared, groupId, isCreator, voting, myVote]);
 
-  if (!shared) {
+  if (loadingShared || !shared) {
     return (
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { paddingTop: topPad, borderBottomColor: colors.border }]}>
@@ -245,7 +266,9 @@ export default function GroupMoveDetailScreen() {
           </TouchableOpacity>
         </View>
         <View style={styles.center}>
-          <Text style={{ color: colors.mutedForeground }}>Move not found.</Text>
+          {loadingShared
+            ? <ActivityIndicator color={colors.primary} size="large" />
+            : <Text style={{ color: colors.mutedForeground }}>Move not found.</Text>}
         </View>
       </View>
     );
