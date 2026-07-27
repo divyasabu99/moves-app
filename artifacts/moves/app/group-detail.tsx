@@ -8,12 +8,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import * as Contacts from 'expo-contacts';
-import { useColors } from '@/hooks/useColors';
-import { useUser } from '@/context/UserContext';
-import { useMoves } from '@/context/MovesContext';
-import { GroupDetail, SharedMove, Move } from '@/types';
-
+// expo-contacts is native-only — imported dynamically inside openContactsPicker after web guard
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 function timeAgo(iso: string): string {
@@ -123,7 +118,7 @@ export default function GroupDetailScreen() {
 
   // Contacts picker
   const [contactsVisible, setContactsVisible] = useState(false);
-  const [contacts, setContacts] = useState<Contacts.ExistingContact[]>([]);
+  const [contacts, setContacts] = useState<NativeContact[]>([]);
   const [contactsSearch, setContactsSearch] = useState('');
   const [contactsLoading, setContactsLoading] = useState(false);
   const [addingContact, setAddingContact] = useState<string | null>(null); // contactId being added
@@ -208,6 +203,7 @@ export default function GroupDetailScreen() {
       Alert.alert('Invite code copied', `Share the code "${group?.inviteCode}" with friends so they can join.`);
       return;
     }
+    const Contacts = await import('expo-contacts');
     const { status } = await Contacts.requestPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Contacts access needed', 'Allow contacts access in Settings so you can invite friends directly.');
@@ -235,13 +231,13 @@ export default function GroupDetailScreen() {
     if (!q) return contacts;
     return contacts.filter(c =>
       (c.name ?? '').toLowerCase().includes(q) ||
-      (c.emails ?? []).some((e: Contacts.Email) => e.email?.toLowerCase().includes(q))
+      (c.emails ?? []).some(e => e.email?.toLowerCase().includes(q))
     );
   }, [contacts, contactsSearch]);
 
   const alreadyMemberIds = useMemo(() => new Set(group?.members.map(m => m.id) ?? []), [group?.members]);
 
-  const handleInviteContact = async (contact: Contacts.ExistingContact) => {
+  const handleInviteContact = async (contact: NativeContact) => {
     const email = contact.emails?.[0]?.email;
     if (!email || !group || !userId) return;
 
@@ -846,3 +842,5 @@ const styles = StyleSheet.create({
   shareChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   shareChipText: { fontSize: 13 },
 });
+
+type NativeContact = { id?: string; name?: string; emails?: Array<{ email?: string }> };
