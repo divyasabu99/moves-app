@@ -141,7 +141,7 @@ export default function GroupMoveDetailScreen() {
   const [myVote, setMyVote] = useState<'up' | 'down' | null>(shared?.votes?.myVote ?? null);
   const [voting, setVoting] = useState(false);
 
-  const isCreator = !!user?.id && !!shared && user.id === shared.sharedBy.id;
+  const isCreator = !!user?.userId && !!shared && user.userId === shared.sharedBy.id;
   const groupId = params.groupId;
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
@@ -187,7 +187,7 @@ export default function GroupMoveDetailScreen() {
   }, [fetchRecipients]);
 
   const handleVote = useCallback(async (vote: 'up' | 'down') => {
-    if (!user?.id || !shared || !groupId) return;
+    if (!user?.userId || !shared || !groupId) return;
     if (isCreator) return; // creator cannot vote — UI hides buttons, but guard anyway
     if (voting) return;
     setVoting(true);
@@ -210,7 +210,7 @@ export default function GroupMoveDetailScreen() {
       const res = await fetch(`${BASE_URL()}/groups/${groupId}/moves/${shared.id}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-        body: JSON.stringify({ userId: user.id, vote }),
+        body: JSON.stringify({ userId: user.userId, vote }),
       });
       if (res.ok) {
         const data = await res.json();
