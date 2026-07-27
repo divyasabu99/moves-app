@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity,
-  Platform, ActivityIndicator, Alert, Modal,
+  Platform, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -116,6 +116,9 @@ export default function GroupDetailScreen() {
   const [tab, setTab] = useState<'moves' | 'members'>('moves');
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [sharingId, setSharingId] = useState<string | null>(null);
+  const [renameVisible, setRenameVisible] = useState(false);
+  const [renameText, setRenameText] = useState('');
+  const [renaming, setRenaming] = useState(false);
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 32);
@@ -190,6 +193,31 @@ export default function GroupDetailScreen() {
     );
   };
 
+  const handleRename = async () => {
+    if (!renameText.trim() || !group) return;
+    setRenaming(true);
+    try {
+      const res = await fetch(`${BASE_URL()}/groups/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, name: renameText.trim() }),
+      });
+      if (!res.ok) {
+        const j = await res.json();
+        Alert.alert('Error', j.error ?? 'Could not rename group.');
+        return;
+      }
+      const { name } = await res.json();
+      setGroup(prev => prev ? { ...prev, name } : prev);
+      setRenameVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert('Error', 'Could not rename group. Try again.');
+    } finally {
+      setRenaming(false);
+    }
+  };
+
   const handleDeleteShared = async (shareId: string) => {
     try {
       await fetch(`${BASE_URL()}/groups/${id}/moves/${shareId}`, {
@@ -239,9 +267,20 @@ export default function GroupDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.groupName, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]} numberOfLines={1}>
-          {group.name}
-        </Text>
+        <View style={styles.groupNameRow}>
+          <Text style={[styles.groupName, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]} numberOfLines={1}>
+            {group.name}
+          </Text>
+          {userId === group.createdBy && (
+            <TouchableOpacity
+              onPress={() => { setRenameText(group.name); setRenameVisible(true); }}
+              activeOpacity={0.7}
+              style={styles.renameIconBtn}
+            >
+              <Ionicons name="pencil-outline" size={15} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
+        </View>
         <TouchableOpacity
           onPress={async () => {
             await Clipboard.setStringAsync(group.inviteCode);
@@ -366,6 +405,52 @@ export default function GroupDetailScreen() {
         />
       )}
 
+      {/* Rename modal */}
+      <Modal visible={renameVisible} animationType="fade" transparent onRequestClose={() => setRenameVisible(false)}>
+        <KeyboardAvoidingView style={styles.renameOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.renameSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.renameTitle, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>
+              Rename group
+            </Text>
+            <TextInput
+              value={renameText}
+              onChangeText={setRenameText}
+              placeholder="Group name"
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={80}
+              autoFocus
+              selectTextOnFocus
+              style={[styles.renameInput, {
+                color: colors.foreground,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+                fontFamily: 'Inter_400Regular',
+              }]}
+            />
+            <View style={styles.renameActions}>
+              <TouchableOpacity
+                onPress={() => setRenameVisible(false)}
+                activeOpacity={0.7}
+                style={[styles.renameBtn, { backgroundColor: colors.muted }]}
+              >
+                <Text style={[styles.renameBtnText, { color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleRename}
+                activeOpacity={0.85}
+                disabled={!renameText.trim() || renaming}
+                style={[styles.renameBtn, { backgroundColor: renameText.trim() ? colors.primary : colors.muted, flex: 1.5 }]}
+              >
+                {renaming
+                  ? <ActivityIndicator color={colors.primaryForeground} size="small" />
+                  : <Text style={[styles.renameBtnText, { color: renameText.trim() ? colors.primaryForeground : colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>Save</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Share move modal */}
       <Modal visible={shareModalVisible} animationType="slide" presentationStyle="pageSheet">
         <View style={[styles.shareModal, { backgroundColor: colors.background, paddingBottom: insets.bottom + 24 }]}>
@@ -483,6 +568,25 @@ const styles = StyleSheet.create({
   },
   ownerText: { fontSize: 11 },
   removeMemberBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+
+  // Rename
+  groupNameRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  renameIconBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  renameOverlay: {
+    flex: 1, backgroundColor: '#00000066',
+    alignItems: 'center', justifyContent: 'center', padding: 32,
+  },
+  renameSheet: {
+    width: '100%', borderRadius: 18, borderWidth: 1, padding: 20, gap: 16,
+  },
+  renameTitle: { fontSize: 17 },
+  renameInput: {
+    borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15,
+  },
+  renameActions: { flexDirection: 'row', gap: 10 },
+  renameBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 13, borderRadius: 12 },
+  renameBtnText: { fontSize: 15 },
   // FAB
   fab: {
     position: 'absolute', right: 20, flexDirection: 'row', alignItems: 'center',

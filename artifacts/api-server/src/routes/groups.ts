@@ -346,6 +346,28 @@ router.post("/groups/:id/sync-places", async (req, res) => {
   }
 });
 
+// PATCH /api/groups/:id — rename group (leader only)
+router.patch("/groups/:id", async (req, res) => {
+  const { id } = req.params;
+  const { userId, name } = req.body as { userId?: string; name?: string };
+  if (!userId || !name?.trim()) {
+    res.status(400).json({ error: "userId and name required" }); return;
+  }
+  try {
+    const { rows } = await pool.query("SELECT created_by FROM moves_groups WHERE id=$1", [id]);
+    if (rows.length === 0) { res.status(404).json({ error: "Group not found" }); return; }
+    if (rows[0].created_by !== userId) {
+      res.status(403).json({ error: "Only the group leader can rename the group" }); return;
+    }
+    const trimmed = name.trim().slice(0, 80);
+    await pool.query("UPDATE moves_groups SET name=$1 WHERE id=$2", [trimmed, id]);
+    res.json({ ok: true, name: trimmed });
+  } catch (err) {
+    console.error("group PATCH error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // DELETE /api/groups/:id/members/:memberId — group leader only
 router.delete("/groups/:id/members/:memberId", async (req, res) => {
   const { id, memberId } = req.params;
