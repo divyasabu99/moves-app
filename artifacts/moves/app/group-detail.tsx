@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Pressable,
   Platform, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,74 +28,88 @@ function SharedMoveCard({
   const colors = useColors();
   const dateLabel = new Date(item.move.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
+  // Outer View + Pressable avoids nested-TouchableOpacity iOS bug.
+  // Delete button is absolutely positioned outside the Pressable hitbox.
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={[styles.sharedCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.sharedTop}>
-        <View style={styles.sharedTopLeft}>
-          <Text style={[styles.sharedVibe, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>
-            {item.move.vibe.toUpperCase()}
-          </Text>
-          <Text style={[styles.sharedBy, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            {isMine ? 'You' : item.sharedBy.displayName} · {timeAgo(item.sharedAt)}
-          </Text>
-        </View>
-        {isMine && (
-          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); onDelete(); }} activeOpacity={0.7} style={styles.deleteBtn}>
-            <Ionicons name="trash-outline" size={16} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        )}
-      </View>
-      <Text style={[styles.sharedTitle, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]} numberOfLines={1}>
-        {item.move.title}
-      </Text>
-      <View style={styles.sharedMeta}>
-        <View style={styles.metaItem}>
-          <Ionicons name="calendar-outline" size={12} color={colors.mutedForeground} />
-          <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            {dateLabel}
-          </Text>
-        </View>
-        <View style={styles.metaItem}>
-          <Ionicons name="time-outline" size={12} color={colors.mutedForeground} />
-          <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            {item.move.startTime}{item.move.endTime ? `–${item.move.endTime}` : ''}
-          </Text>
-        </View>
-        <View style={styles.metaItem}>
-          <Ionicons name="people-outline" size={12} color={colors.mutedForeground} />
-          <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            {item.move.partySize}
-          </Text>
-        </View>
-      </View>
-      <View style={[styles.stopsPreview, { borderTopColor: colors.border }]}>
-        {item.move.stops.slice(0, 3).map((stop, i) => (
-          <View key={stop.placeId + i} style={styles.stopLine}>
-            <View style={[styles.stopDot, { backgroundColor: i === 0 ? colors.primary : colors.border }]} />
-            <Text style={[styles.stopName, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
-              {stop.place.name}
+    <View style={[styles.sharedCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [{ opacity: pressed ? 0.72 : 1 }]}
+      >
+        <View style={styles.sharedTop}>
+          <View style={styles.sharedTopLeft}>
+            <Text style={[styles.sharedVibe, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>
+              {item.move.vibe.toUpperCase()}
+            </Text>
+            <Text style={[styles.sharedBy, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              {isMine ? 'You' : item.sharedBy.displayName} · {timeAgo(item.sharedAt)}
             </Text>
           </View>
-        ))}
-        {item.move.stops.length > 3 && (
-          <Text style={[styles.morePlaces, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            +{item.move.stops.length - 3} more
-          </Text>
-        )}
-      </View>
-      {/* Split Bill button */}
-      <TouchableOpacity
-        onPress={(e) => { e.stopPropagation?.(); router.push({ pathname: '/receipt', params: { shareId: item.id, groupId } }); }}
-        activeOpacity={0.75}
-        style={[styles.splitBtn, { borderTopColor: colors.border }]}
-      >
-        <Ionicons name="receipt-outline" size={14} color={colors.primary} />
-        <Text style={[styles.splitBtnText, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>
-          Split the Bill
+          {isMine && <View style={styles.deletePlaceholder} />}
+        </View>
+        <Text style={[styles.sharedTitle, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]} numberOfLines={1}>
+          {item.move.title}
         </Text>
-        <Ionicons name="chevron-forward" size={14} color={colors.primary} style={{ marginLeft: 'auto' }} />
-      </TouchableOpacity>
-    </TouchableOpacity>
+        <View style={styles.sharedMeta}>
+          <View style={styles.metaItem}>
+            <Ionicons name="calendar-outline" size={12} color={colors.mutedForeground} />
+            <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              {dateLabel}
+            </Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Ionicons name="time-outline" size={12} color={colors.mutedForeground} />
+            <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              {item.move.startTime}{item.move.endTime ? `–${item.move.endTime}` : ''}
+            </Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Ionicons name="people-outline" size={12} color={colors.mutedForeground} />
+            <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              {item.move.partySize}
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.stopsPreview, { borderTopColor: colors.border }]}>
+          {item.move.stops.slice(0, 3).map((stop, i) => (
+            <View key={stop.placeId + i} style={styles.stopLine}>
+              <View style={[styles.stopDot, { backgroundColor: i === 0 ? colors.primary : colors.border }]} />
+              <Text style={[styles.stopName, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
+                {stop.place.name}
+              </Text>
+            </View>
+          ))}
+          {item.move.stops.length > 3 && (
+            <Text style={[styles.morePlaces, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              +{item.move.stops.length - 3} more
+            </Text>
+          )}
+        </View>
+        {/* Split Bill button */}
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: '/receipt', params: { shareId: item.id, groupId } })}
+          activeOpacity={0.75}
+          style={[styles.splitBtn, { borderTopColor: colors.border }]}
+        >
+          <Ionicons name="receipt-outline" size={14} color={colors.primary} />
+          <Text style={[styles.splitBtnText, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>
+            Split the Bill
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.primary} style={{ marginLeft: 'auto' }} />
+        </TouchableOpacity>
+      </Pressable>
+      {/* Delete button sits outside the Pressable so it gets its own touch responder */}
+      {isMine && (
+        <TouchableOpacity
+          onPress={onDelete}
+          activeOpacity={0.7}
+          style={[styles.deleteBtn, { position: 'absolute', top: 14, right: 14 }]}
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Ionicons name="trash-outline" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -728,6 +742,7 @@ const styles = StyleSheet.create({
   sharedVibe: { fontSize: 10, letterSpacing: 1 },
   sharedBy: { fontSize: 12 },
   deleteBtn: { padding: 4 },
+  deletePlaceholder: { width: 28 }, // keeps row height consistent when delete btn is absolute
   sharedTitle: { fontSize: 18, lineHeight: 22 },
   sharedMeta: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
