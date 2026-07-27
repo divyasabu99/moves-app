@@ -246,13 +246,28 @@ router.post("/shared/:token/react", requireAuth, async (req: Request, res: Respo
     if (tokenRow.rows.length === 0) return res.status(404).json({ error: "Share link not found" });
 
     const tokenId = tokenRow.rows[0].id;
-    await pool.query(
-      `INSERT INTO moves_share_reactions (id, token_id, user_id, reaction, suggestion)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (token_id, user_id)
-       DO UPDATE SET reaction = EXCLUDED.reaction, suggestion = EXCLUDED.suggestion`,
-      [makeId(), tokenId, userId, reaction, suggestion ? JSON.stringify(suggestion) : null],
+
+    // Toggle: if same reaction already exists, remove it; otherwise upsert
+    const existing = await pool.query(
+      `SELECT reaction FROM moves_share_reactions WHERE token_id = $1 AND user_id = $2`,
+      [tokenId, userId],
     );
+
+    if (existing.rows.length > 0 && existing.rows[0].reaction === reaction) {
+      // Same reaction — toggle off
+      await pool.query(
+        `DELETE FROM moves_share_reactions WHERE token_id = $1 AND user_id = $2`,
+        [tokenId, userId],
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO moves_share_reactions (id, token_id, user_id, reaction, suggestion)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (token_id, user_id)
+         DO UPDATE SET reaction = EXCLUDED.reaction, suggestion = EXCLUDED.suggestion`,
+        [makeId(), tokenId, userId, reaction, suggestion ? JSON.stringify(suggestion) : null],
+      );
+    }
 
     res.json({ ok: true });
   } catch (err) {

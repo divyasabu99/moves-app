@@ -210,7 +210,7 @@ export default function GroupMoveDetailScreen() {
       const res = await fetch(`${BASE_URL()}/groups/${groupId}/moves/${shared.id}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-        body: JSON.stringify({ userId: user.userId, vote }),
+        body: JSON.stringify({ vote }),
       });
       if (res.ok) {
         const data = await res.json();

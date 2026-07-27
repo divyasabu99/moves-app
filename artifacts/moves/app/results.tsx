@@ -29,7 +29,7 @@ function ShareSheet({
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userId } = useUser();
+  const { userId, user } = useUser();
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,8 +66,8 @@ function ShareSheet({
     try {
       const res = await fetch(`${BASE_URL()}/groups/${group.id}/moves`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, move }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
+        body: JSON.stringify({ move }),
       });
       if (!res.ok) throw new Error();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -215,7 +215,7 @@ export default function ResultsScreen() {
   const { plan: planParam } = useLocalSearchParams<{ plan: string }>();
   const { places } = usePlaces();
   const { moves, saveMove } = useMoves();
-  const { userId } = useUser();
+  const { userId, user } = useUser();
 
   // Track saved Move objects per card index
   const [savedMoves, setSavedMoves] = useState<Map<number, Move>>(new Map());
@@ -266,8 +266,8 @@ export default function ResultsScreen() {
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
     fetch(`https://${domain}/api/groups/${plan.groupId}/sync-places`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, places }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
+      body: JSON.stringify({ places }),
     })
       .then(r => r.json())
       .then(data => {

@@ -19,7 +19,7 @@ type ModalMode = 'none' | 'create' | 'join' | 'setName';
 export default function GroupsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userId, displayName, updateDisplayName, authReady } = useUser();
+  const { userId, displayName, updateDisplayName, authReady, user } = useUser();
 
   const [groups, setGroups]           = useState<Group[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -73,8 +73,8 @@ export default function GroupsScreen() {
     try {
       const res = await fetch(`${BASE_URL()}/groups`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: nameInput.trim(), userId }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
+        body: JSON.stringify({ name: nameInput.trim() }),
       });
       if (!res.ok) throw new Error('Could not create group.');
       const group = await res.json() as Group;
@@ -96,8 +96,8 @@ export default function GroupsScreen() {
     try {
       const res = await fetch(`${BASE_URL()}/groups/join`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteCode: codeInput.trim().toUpperCase(), userId }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
+        body: JSON.stringify({ inviteCode: codeInput.trim().toUpperCase() }),
       });
       if (res.status === 404) throw new Error('Group not found. Check the code and try again.');
       if (!res.ok) throw new Error('Could not join group.');

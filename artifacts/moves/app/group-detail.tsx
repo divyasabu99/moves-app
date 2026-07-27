@@ -128,10 +128,11 @@ export default function GroupDetailScreen() {
 
   const fetchAll = useCallback(async () => {
     if (!id || !userId) return;
+    const authHeader = { Authorization: `Bearer ${user?.token ?? ''}` };
     try {
       const [gRes, mRes] = await Promise.all([
-        fetch(`${BASE_URL()}/groups/${id}?userId=${encodeURIComponent(userId)}`),
-        fetch(`${BASE_URL()}/groups/${id}/moves?userId=${encodeURIComponent(userId)}`),
+        fetch(`${BASE_URL()}/groups/${id}?userId=${encodeURIComponent(userId)}`, { headers: authHeader }),
+        fetch(`${BASE_URL()}/groups/${id}/moves?userId=${encodeURIComponent(userId)}`, { headers: authHeader }),
       ]);
       if (gRes.ok) setGroup(await gRes.json());
       if (mRes.ok) setSharedMoves(await mRes.json());
@@ -148,8 +149,8 @@ export default function GroupDetailScreen() {
     try {
       const res = await fetch(`${BASE_URL()}/groups/${id}/moves`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, move }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
+        body: JSON.stringify({ move }),
       });
       if (!res.ok) throw new Error('Could not share.');
       await fetchAll();
@@ -174,8 +175,7 @@ export default function GroupDetailScreen() {
             try {
               const res = await fetch(`${BASE_URL()}/groups/${id}/members/${memberId}`, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId }),
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
               });
               if (!res.ok) {
                 const j = await res.json();
@@ -260,8 +260,8 @@ export default function GroupDetailScreen() {
         // Add them directly
         const addRes = await fetch(`${BASE_URL()}/groups/${id}/members`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, targetUserId: lookup.userId }),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
+          body: JSON.stringify({ targetUserId: lookup.userId }),
         });
         if (addRes.ok) {
           await fetchAll();
@@ -292,8 +292,8 @@ export default function GroupDetailScreen() {
     try {
       const res = await fetch(`${BASE_URL()}/groups/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, name: renameText.trim() }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
+        body: JSON.stringify({ name: renameText.trim() }),
       });
       if (!res.ok) {
         const j = await res.json();
@@ -315,8 +315,7 @@ export default function GroupDetailScreen() {
     try {
       await fetch(`${BASE_URL()}/groups/${id}/moves/${shareId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
       });
       setSharedMoves(prev => prev.filter(s => s.id !== shareId));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

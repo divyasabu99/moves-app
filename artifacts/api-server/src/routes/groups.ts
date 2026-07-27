@@ -2,7 +2,10 @@ import { Router, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { pool } from "@workspace/db";
 
+const router = Router();
 const JWT_SECRET = process.env.SESSION_SECRET ?? "moves-secret-fallback";
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   const auth = req.headers.authorization ?? "";
@@ -17,7 +20,18 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-const router = Router();
+// Optional auth — sets userId if token present but does not block unauthenticated requests
+function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+  const auth = req.headers.authorization ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (token) {
+    try {
+      const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
+      (req as any).userId = payload.userId;
+    } catch { /* ignore */ }
+  }
+  next();
+}
 
 // ── DB init ───────────────────────────────────────────────────────────────────
 
@@ -47,9 +61,11 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
 }
 
-// GET /api/groups?userId=
-router.get("/groups", async (req, res) => {
-  const { userId } = req.query as { userId?: string };
+// ── GET /api/groups?userId= ───────────────────────────────────────────────────
+// Read-only list; still uses query userId for backward-compat while mobile migrates,
+// but we fall back to token identity if present.
+router.get("/groups", optionalAuth, async (req, res) => {
+  const userId = (req as any).userId ?? (req.query as any).userId;
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
   try {
     const { rows } = await pool.query(
@@ -75,15 +91,15 @@ router.get("/groups", async (req, res) => {
   }
 });
 
-// POST /api/groups — create a group
-router.post("/groups", async (req, res) => {
-  const { name, userId } = req.body as { name?: string; userId?: string };
-  if (!name?.trim() || !userId) { res.status(400).json({ error: "name and userId required" }); return; }
+// ── POST /api/groups — create a group ────────────────────────────────────────
+router.post("/groups", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
+  const { name } = req.body as { name?: string };
+  if (!name?.trim()) { res.status(400).json({ error: "name required" }); return; }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     let inviteCode = generateInviteCode();
-    // Ensure unique invite code
     for (let i = 0; i < 5; i++) {
       const { rows } = await client.query("SELECT 1 FROM moves_groups WHERE invite_code=$1", [inviteCode]);
       if (rows.length === 0) break;
@@ -115,10 +131,11 @@ router.post("/groups", async (req, res) => {
   }
 });
 
-// POST /api/groups/join — join by invite code
-router.post("/groups/join", async (req, res) => {
-  const { inviteCode, userId } = req.body as { inviteCode?: string; userId?: string };
-  if (!inviteCode?.trim() || !userId) { res.status(400).json({ error: "inviteCode and userId required" }); return; }
+// ── POST /api/groups/join — join by invite code ───────────────────────────────
+router.post("/groups/join", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
+  const { inviteCode } = req.body as { inviteCode?: string };
+  if (!inviteCode?.trim()) { res.status(400).json({ error: "inviteCode required" }); return; }
   try {
     const { rows: groups } = await pool.query(
       "SELECT * FROM moves_groups WHERE invite_code = $1",
@@ -149,14 +166,13 @@ router.post("/groups/join", async (req, res) => {
   }
 });
 
-// GET /api/groups/:id — group details + members
-router.get("/groups/:id", async (req, res) => {
+// ── GET /api/groups/:id — group details + members ────────────────────────────
+router.get("/groups/:id", optionalAuth, async (req, res) => {
   const { id } = req.params;
-  const { userId } = req.query as { userId?: string };
+  const userId = (req as any).userId ?? (req.query as any).userId;
   try {
     const { rows: groups } = await pool.query("SELECT * FROM moves_groups WHERE id = $1", [id]);
     if (groups.length === 0) { res.status(404).json({ error: "Not found" }); return; }
-    // Verify membership
     if (userId) {
       const { rows: mem } = await pool.query(
         "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
@@ -184,10 +200,10 @@ router.get("/groups/:id", async (req, res) => {
   }
 });
 
-// GET /api/groups/:id/moves
-router.get("/groups/:id/moves", async (req, res) => {
+// ── GET /api/groups/:id/moves ─────────────────────────────────────────────────
+router.get("/groups/:id/moves", optionalAuth, async (req, res) => {
   const { id } = req.params;
-  const { userId } = req.query as { userId?: string };
+  const userId = (req as any).userId ?? (req.query as any).userId ?? null;
   try {
     if (userId) {
       const { rows: mem } = await pool.query(
@@ -208,7 +224,7 @@ router.get("/groups/:id/moves", async (req, res) => {
        GROUP BY sm.id, sm.move_data, sm.shared_at, u.id, u.display_name
        ORDER BY sm.shared_at DESC
        LIMIT 50`,
-      [id, userId ?? null]
+      [id, userId]
     );
     res.json(rows.map(r => ({
       id: r.id, move: r.move_data,
@@ -222,56 +238,51 @@ router.get("/groups/:id/moves", async (req, res) => {
   }
 });
 
-// POST /api/groups/:id/moves/:shareId/vote — vote up or down (creator is blocked server-side)
-router.post("/groups/:id/moves/:shareId/vote", async (req, res) => {
+// ── POST /api/groups/:id/moves/:shareId/vote ──────────────────────────────────
+// Vote up or down; creator is blocked. Same-vote toggled off.
+router.post("/groups/:id/moves/:shareId/vote", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const { id, shareId } = req.params;
-  const { userId, vote } = req.body as { userId?: string; vote?: string };
-  if (!userId || !vote || !["up", "down"].includes(vote)) {
-    res.status(400).json({ error: "userId and vote ('up'|'down') required" });
-    return;
+  const { vote } = req.body as { vote?: string };
+  if (!vote || !["up", "down"].includes(vote)) {
+    res.status(400).json({ error: "vote must be 'up' or 'down'" }); return;
   }
   try {
-    // Must be a group member
     const { rows: mem } = await pool.query(
       "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
       [id, userId]
     );
     if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
 
-    // Creator cannot vote on their own shared move
     const { rows: sm } = await pool.query(
       "SELECT user_id FROM moves_shared_moves WHERE id=$1 AND group_id=$2",
       [shareId, id]
     );
     if (sm.length === 0) { res.status(404).json({ error: "Move not found" }); return; }
     if (sm[0].user_id === userId) {
-      res.status(403).json({ error: "You cannot vote on your own move" });
-      return;
+      res.status(403).json({ error: "You cannot vote on your own move" }); return;
     }
 
-    // Toggle: if same vote exists, remove it; otherwise upsert
     const existing = await pool.query(
       "SELECT vote FROM moves_group_move_votes WHERE share_id=$1 AND user_id=$2",
       [shareId, userId]
     );
 
     if (existing.rows.length > 0 && existing.rows[0].vote === vote) {
-      // Same vote — remove it (toggle off)
+      // Same vote — toggle off
       await pool.query(
         "DELETE FROM moves_group_move_votes WHERE share_id=$1 AND user_id=$2",
         [shareId, userId]
       );
     } else {
-      const voteId = generateId();
       await pool.query(
         `INSERT INTO moves_group_move_votes (id, share_id, group_id, user_id, vote)
          VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (share_id, user_id) DO UPDATE SET vote = $5`,
-        [voteId, shareId, id, userId, vote]
+        [generateId(), shareId, id, userId, vote]
       );
     }
 
-    // Return updated counts
     const { rows: counts } = await pool.query(
       `SELECT COUNT(CASE WHEN vote = 'up'   THEN 1 END)::int AS up_count,
               COUNT(CASE WHEN vote = 'down' THEN 1 END)::int AS down_count,
@@ -290,11 +301,12 @@ router.post("/groups/:id/moves/:shareId/vote", async (req, res) => {
   }
 });
 
-// POST /api/groups/:id/moves — share a move
-router.post("/groups/:id/moves", async (req, res) => {
+// ── POST /api/groups/:id/moves — share a move ────────────────────────────────
+router.post("/groups/:id/moves", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const { id } = req.params;
-  const { userId, move } = req.body as { userId?: string; move?: object };
-  if (!userId || !move) { res.status(400).json({ error: "userId and move required" }); return; }
+  const { move } = req.body as { move?: object };
+  if (!move) { res.status(400).json({ error: "move required" }); return; }
   try {
     const { rows: mem } = await pool.query(
       "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
@@ -314,24 +326,19 @@ router.post("/groups/:id/moves", async (req, res) => {
   }
 });
 
-// POST /api/groups/:id/sync-places
-// Upserts the calling user's places for this group, returns all other members' places.
-router.post("/groups/:id/sync-places", async (req, res) => {
+// ── POST /api/groups/:id/sync-places ─────────────────────────────────────────
+router.post("/groups/:id/sync-places", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const { id } = req.params;
-  const { userId, places } = req.body as { userId?: string; places?: unknown[] };
-  if (!userId || !Array.isArray(places)) {
-    res.status(400).json({ error: "userId and places[] required" });
-    return;
-  }
+  const { places } = req.body as { places?: unknown[] };
+  if (!Array.isArray(places)) { res.status(400).json({ error: "places[] required" }); return; }
   try {
-    // Verify membership
     const { rows: mem } = await pool.query(
       "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
       [id, userId]
     );
     if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
 
-    // Upsert this user's places
     await pool.query(
       `INSERT INTO moves_member_places (group_id, user_id, places, synced_at)
        VALUES ($1, $2, $3::jsonb, NOW())
@@ -340,7 +347,6 @@ router.post("/groups/:id/sync-places", async (req, res) => {
       [id, userId, JSON.stringify(places)]
     );
 
-    // Return all OTHER members' places + their display names
     const { rows } = await pool.query(
       `SELECT mp.user_id, u.display_name, mp.places
        FROM moves_member_places mp
@@ -362,25 +368,21 @@ router.post("/groups/:id/sync-places", async (req, res) => {
   }
 });
 
-// GET /api/users/lookup?email=&groupId= — find a MOVES user by email so a group member
-// can add them. Requires the caller to be authenticated AND a member of the given group,
-// preventing open email enumeration by arbitrary callers.
+// ── GET /api/users/lookup?email=&groupId= ────────────────────────────────────
+// Auth-gated: caller must be a member of the given group.
 router.get("/users/lookup", requireAuth, async (req, res) => {
   const callerId = (req as any).userId as string;
   const { email, groupId } = req.query as { email?: string; groupId?: string };
   if (!email?.trim()) { res.status(400).json({ error: "email required" }); return; }
   if (!groupId?.trim()) { res.status(400).json({ error: "groupId required" }); return; }
   try {
-    // Caller must be a member of the stated group
     const { rows: membership } = await pool.query(
       "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
       [groupId, callerId]
     );
     if (membership.length === 0) {
-      res.status(403).json({ error: "Not a member of this group" });
-      return;
+      res.status(403).json({ error: "Not a member of this group" }); return;
     }
-
     const { rows } = await pool.query(
       "SELECT id, display_name FROM moves_users WHERE LOWER(email) = $1",
       [email.trim().toLowerCase()]
@@ -393,25 +395,24 @@ router.get("/users/lookup", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/groups/:id/members — any member can add another user by userId
-router.post("/groups/:id/members", async (req, res) => {
+// ── POST /api/groups/:id/members ─────────────────────────────────────────────
+// Any authenticated member can add another verified user by their userId.
+router.post("/groups/:id/members", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const { id } = req.params;
-  const { userId, targetUserId } = req.body as { userId?: string; targetUserId?: string };
-  if (!userId || !targetUserId) { res.status(400).json({ error: "userId and targetUserId required" }); return; }
+  const { targetUserId } = req.body as { targetUserId?: string };
+  if (!targetUserId) { res.status(400).json({ error: "targetUserId required" }); return; }
   try {
-    // Caller must be a member
     const { rows: mem } = await pool.query(
       "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
       [id, userId]
     );
     if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
-    // Target user must exist
     const { rows: target } = await pool.query(
       "SELECT id, display_name FROM moves_users WHERE id=$1",
       [targetUserId]
     );
     if (target.length === 0) { res.status(404).json({ error: "User not found" }); return; }
-    // Add (ignore if already a member)
     await pool.query(
       `INSERT INTO moves_group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
       [id, targetUserId]
@@ -423,13 +424,12 @@ router.post("/groups/:id/members", async (req, res) => {
   }
 });
 
-// PATCH /api/groups/:id — rename group (leader only)
-router.patch("/groups/:id", async (req, res) => {
+// ── PATCH /api/groups/:id — rename group (leader only) ───────────────────────
+router.patch("/groups/:id", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const { id } = req.params;
-  const { userId, name } = req.body as { userId?: string; name?: string };
-  if (!userId || !name?.trim()) {
-    res.status(400).json({ error: "userId and name required" }); return;
-  }
+  const { name } = req.body as { name?: string };
+  if (!name?.trim()) { res.status(400).json({ error: "name required" }); return; }
   try {
     const { rows } = await pool.query("SELECT created_by FROM moves_groups WHERE id=$1", [id]);
     if (rows.length === 0) { res.status(404).json({ error: "Group not found" }); return; }
@@ -445,26 +445,20 @@ router.patch("/groups/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/groups/:id/members/:memberId — group leader only
-router.delete("/groups/:id/members/:memberId", async (req, res) => {
+// ── DELETE /api/groups/:id/members/:memberId — leader only ───────────────────
+router.delete("/groups/:id/members/:memberId", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const { id, memberId } = req.params;
-  const { userId } = req.body as { userId?: string };
-  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
   try {
-    // Only the group leader can remove members
     const { rows: group } = await pool.query(
-      "SELECT created_by FROM moves_groups WHERE id=$1",
-      [id]
+      "SELECT created_by FROM moves_groups WHERE id=$1", [id]
     );
     if (group.length === 0) { res.status(404).json({ error: "Group not found" }); return; }
     if (group[0].created_by !== userId) {
-      res.status(403).json({ error: "Only the group leader can remove members" });
-      return;
+      res.status(403).json({ error: "Only the group leader can remove members" }); return;
     }
-    // Cannot remove yourself (the leader)
     if (memberId === userId) {
-      res.status(400).json({ error: "Group leader cannot remove themselves" });
-      return;
+      res.status(400).json({ error: "Group leader cannot remove themselves" }); return;
     }
     const result = await pool.query(
       "DELETE FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
@@ -478,10 +472,10 @@ router.delete("/groups/:id/members/:memberId", async (req, res) => {
   }
 });
 
-// DELETE /api/groups/:id/moves/:shareId
-router.delete("/groups/:id/moves/:shareId", async (req, res) => {
+// ── DELETE /api/groups/:id/moves/:shareId ────────────────────────────────────
+router.delete("/groups/:id/moves/:shareId", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const { id, shareId } = req.params;
-  const { userId } = req.body as { userId?: string };
   try {
     const result = await pool.query(
       "DELETE FROM moves_shared_moves WHERE id=$1 AND group_id=$2 AND user_id=$3",
