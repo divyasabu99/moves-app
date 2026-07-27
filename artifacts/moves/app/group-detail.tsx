@@ -156,6 +156,40 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const handleRemoveMember = (memberId: string, displayName: string) => {
+    Alert.alert(
+      'Remove member',
+      `Remove ${displayName} from the group?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove', style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await fetch(`${BASE_URL()}/groups/${id}/members/${memberId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+              });
+              if (!res.ok) {
+                const j = await res.json();
+                Alert.alert('Error', j.error ?? 'Could not remove member.');
+                return;
+              }
+              setGroup(prev => prev
+                ? { ...prev, members: prev.members.filter(m => m.id !== memberId) }
+                : prev
+              );
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            } catch {
+              Alert.alert('Error', 'Could not remove member. Try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleDeleteShared = async (shareId: string) => {
     try {
       await fetch(`${BASE_URL()}/groups/${id}/moves/${shareId}`, {
@@ -293,28 +327,42 @@ export default function GroupDetailScreen() {
           data={group.members}
           keyExtractor={m => m.id}
           contentContainerStyle={[styles.list, { paddingBottom: botPad }]}
-          renderItem={({ item }) => (
-            <View style={[styles.memberRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.memberAvatar, { backgroundColor: item.id === group.createdBy ? colors.primary : colors.muted }]}>
-                <Text style={[styles.memberAvatarText, { color: item.id === group.createdBy ? colors.primaryForeground : colors.mutedForeground, fontFamily: 'Inter_700Bold' }]}>
-                  {item.displayName.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.memberInfo}>
-                <Text style={[styles.memberName, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
-                  {item.id === userId ? `${item.displayName} (you)` : item.displayName}
-                </Text>
-                <Text style={[styles.memberJoined, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-                  Joined {new Date(item.joinedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </Text>
-              </View>
-              {item.id === group.createdBy && (
-                <View style={[styles.ownerBadge, { backgroundColor: colors.muted }]}>
-                  <Text style={[styles.ownerText, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>Admin</Text>
+          renderItem={({ item }) => {
+            const isLeader = item.id === group.createdBy;
+            const iAmLeader = userId === group.createdBy;
+            const canRemove = iAmLeader && !isLeader;
+            return (
+              <View style={[styles.memberRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.memberAvatar, { backgroundColor: isLeader ? colors.primary : colors.muted }]}>
+                  <Text style={[styles.memberAvatarText, { color: isLeader ? colors.primaryForeground : colors.mutedForeground, fontFamily: 'Inter_700Bold' }]}>
+                    {item.displayName.charAt(0).toUpperCase()}
+                  </Text>
                 </View>
-              )}
-            </View>
-          )}
+                <View style={styles.memberInfo}>
+                  <Text style={[styles.memberName, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
+                    {item.id === userId ? `${item.displayName} (you)` : item.displayName}
+                  </Text>
+                  <Text style={[styles.memberJoined, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+                    {isLeader ? 'Group Leader' : `Joined ${new Date(item.joinedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  </Text>
+                </View>
+                {isLeader ? (
+                  <View style={[styles.ownerBadge, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}>
+                    <Ionicons name="shield-checkmark-outline" size={11} color={colors.primary} />
+                    <Text style={[styles.ownerText, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>Leader</Text>
+                  </View>
+                ) : canRemove ? (
+                  <TouchableOpacity
+                    onPress={() => handleRemoveMember(item.id, item.displayName)}
+                    activeOpacity={0.7}
+                    style={styles.removeMemberBtn}
+                  >
+                    <Ionicons name="person-remove-outline" size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            );
+          }}
         />
       )}
 
@@ -429,8 +477,12 @@ const styles = StyleSheet.create({
   memberInfo: { flex: 1 },
   memberName: { fontSize: 15 },
   memberJoined: { fontSize: 12, marginTop: 2 },
-  ownerBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  ownerBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1,
+  },
   ownerText: { fontSize: 11 },
+  removeMemberBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   // FAB
   fab: {
     position: 'absolute', right: 20, flexDirection: 'row', alignItems: 'center',

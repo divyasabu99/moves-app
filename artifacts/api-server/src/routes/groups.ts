@@ -346,6 +346,39 @@ router.post("/groups/:id/sync-places", async (req, res) => {
   }
 });
 
+// DELETE /api/groups/:id/members/:memberId — group leader only
+router.delete("/groups/:id/members/:memberId", async (req, res) => {
+  const { id, memberId } = req.params;
+  const { userId } = req.body as { userId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  try {
+    // Only the group leader can remove members
+    const { rows: group } = await pool.query(
+      "SELECT created_by FROM moves_groups WHERE id=$1",
+      [id]
+    );
+    if (group.length === 0) { res.status(404).json({ error: "Group not found" }); return; }
+    if (group[0].created_by !== userId) {
+      res.status(403).json({ error: "Only the group leader can remove members" });
+      return;
+    }
+    // Cannot remove yourself (the leader)
+    if (memberId === userId) {
+      res.status(400).json({ error: "Group leader cannot remove themselves" });
+      return;
+    }
+    const result = await pool.query(
+      "DELETE FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
+      [id, memberId]
+    );
+    if (result.rowCount === 0) { res.status(404).json({ error: "Member not found" }); return; }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("group member DELETE error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // DELETE /api/groups/:id/moves/:shareId
 router.delete("/groups/:id/moves/:shareId", async (req, res) => {
   const { id, shareId } = req.params;
