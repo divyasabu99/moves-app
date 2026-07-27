@@ -511,17 +511,6 @@ export default function GroupMoveDetailScreen() {
             </View>
           )}
 
-          {/* Share outside CTA */}
-          <TouchableOpacity
-            onPress={() => setShowShareSheet(true)}
-            activeOpacity={0.85}
-            style={[styles.shareOutsideBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-          >
-            <Ionicons name="paper-plane-outline" size={17} color={colors.foreground} />
-            <Text style={[styles.shareOutsideBtnText, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
-              Share outside the group
-            </Text>
-          </TouchableOpacity>
         </View>
 
       </ScrollView>
