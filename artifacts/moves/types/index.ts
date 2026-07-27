@@ -116,6 +116,7 @@ export interface SharedMove {
   move: Move;
   sharedBy: { id: string; displayName: string };
   sharedAt: string;
+  votes?: { upCount: number; downCount: number; myVote: 'up' | 'down' | null };
 }
 
 // ── Receipt splitting ─────────────────────────────────────────────────────────

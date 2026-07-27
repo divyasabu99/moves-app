@@ -12,8 +12,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Platform, ActivityIndicator,
+  Platform, ActivityIndicator, Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -134,6 +135,15 @@ export default function GroupMoveDetailScreen() {
   const [recipientsLoading, setRecipientsLoading] = useState(true);
   const [showShareSheet, setShowShareSheet] = useState(false);
 
+  // ── Voting ─────────────────────────────────────────────────────────────────
+  const [upCount, setUpCount] = useState(shared?.votes?.upCount ?? 0);
+  const [downCount, setDownCount] = useState(shared?.votes?.downCount ?? 0);
+  const [myVote, setMyVote] = useState<'up' | 'down' | null>(shared?.votes?.myVote ?? null);
+  const [voting, setVoting] = useState(false);
+
+  const isCreator = !!user?.id && !!shared && user.id === shared.sharedBy.id;
+  const groupId = params.groupId;
+
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 48);
 
@@ -175,6 +185,56 @@ export default function GroupMoveDetailScreen() {
     // Re-fetch so new phone numbers appear immediately
     fetchRecipients();
   }, [fetchRecipients]);
+
+  const handleVote = useCallback(async (vote: 'up' | 'down') => {
+    if (!user?.id || !shared || !groupId) return;
+    if (isCreator) return; // creator cannot vote — UI hides buttons, but guard anyway
+    if (voting) return;
+    setVoting(true);
+
+    // Optimistic update
+    const prevVote = myVote;
+    const wasUp = prevVote === 'up';
+    const wasDown = prevVote === 'down';
+    const nextVote = prevVote === vote ? null : vote;
+    if (vote === 'up') {
+      setUpCount(c => prevVote === 'up' ? c - 1 : c + 1);
+      if (wasDown) setDownCount(c => c - 1);
+    } else {
+      setDownCount(c => prevVote === 'down' ? c - 1 : c + 1);
+      if (wasUp) setUpCount(c => c - 1);
+    }
+    setMyVote(nextVote);
+
+    try {
+      const res = await fetch(`${BASE_URL()}/groups/${groupId}/moves/${shared.id}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+        body: JSON.stringify({ userId: user.id, vote }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUpCount(data.upCount);
+        setDownCount(data.downCount);
+        setMyVote(data.myVote);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (res.status === 403) {
+        const j = await res.json();
+        Alert.alert('Cannot vote', j.error ?? 'Not allowed');
+        // revert
+        setMyVote(prevVote);
+        if (vote === 'up') { setUpCount(c => c - 1); if (wasDown) setDownCount(c => c + 1); }
+        else { setDownCount(c => c - 1); if (wasUp) setUpCount(c => c + 1); }
+      }
+    } catch {
+      // revert on network error
+      setMyVote(prevVote);
+      if (vote === 'up') { setUpCount(c => c - 1); if (wasDown) setDownCount(c => c + 1); }
+      else { setDownCount(c => c - 1); if (wasUp) setUpCount(c => c + 1); }
+    } finally {
+      setVoting(false);
+    }
+  }, [user, shared, groupId, isCreator, voting, myVote]);
 
   if (!shared) {
     return (
@@ -269,6 +329,49 @@ export default function GroupMoveDetailScreen() {
             </View>
           </View>
         </View>
+
+        {/* ── Vote bar (all members except creator) ── */}
+        {!isCreator && (
+          <View style={[styles.voteBar, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 20, marginTop: 12 }]}>
+            <TouchableOpacity
+              onPress={() => handleVote('up')}
+              activeOpacity={0.75}
+              disabled={voting}
+              style={[styles.voteBtn, myVote === 'up' && { backgroundColor: '#4ade8022' }]}
+            >
+              <Ionicons
+                name={myVote === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+                size={20}
+                color={myVote === 'up' ? '#4ade80' : colors.mutedForeground}
+              />
+              {upCount > 0 && (
+                <Text style={[styles.voteCount, { color: myVote === 'up' ? '#4ade80' : colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
+                  {upCount}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={[styles.voteDivider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity
+              onPress={() => handleVote('down')}
+              activeOpacity={0.75}
+              disabled={voting}
+              style={[styles.voteBtn, myVote === 'down' && { backgroundColor: '#f8717122' }]}
+            >
+              <Ionicons
+                name={myVote === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+                size={20}
+                color={myVote === 'down' ? '#f87171' : colors.mutedForeground}
+              />
+              {downCount > 0 && (
+                <Text style={[styles.voteCount, { color: myVote === 'down' ? '#f87171' : colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }]}>
+                  {downCount}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── Itinerary ── */}
         <View style={[styles.section, { borderBottomColor: colors.border }]}>
@@ -534,4 +637,16 @@ const styles = StyleSheet.create({
     gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 1, marginTop: 14,
   },
   shareOutsideBtnText: { fontSize: 15 },
+
+  // Vote bar
+  voteBar: {
+    flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1,
+    paddingVertical: 4, paddingHorizontal: 4,
+  },
+  voteBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 11, borderRadius: 10,
+  },
+  voteCount: { fontSize: 14 },
+  voteDivider: { width: 1, height: 28, marginHorizontal: 4 },
 });

@@ -3,6 +3,23 @@ import { pool } from "@workspace/db";
 
 const router = Router();
 
+// ── DB init ───────────────────────────────────────────────────────────────────
+
+async function ensureTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS moves_group_move_votes (
+      id          VARCHAR(36) PRIMARY KEY,
+      share_id    VARCHAR(36) NOT NULL REFERENCES moves_shared_moves(id) ON DELETE CASCADE,
+      group_id    VARCHAR(36) NOT NULL,
+      user_id     VARCHAR(128) NOT NULL REFERENCES moves_users(id) ON DELETE CASCADE,
+      vote        VARCHAR(4) NOT NULL CHECK (vote IN ('up', 'down')),
+      created_at  TIMESTAMP DEFAULT NOW(),
+      UNIQUE (share_id, user_id)
+    );
+  `);
+}
+ensureTables().catch(err => console.error("[groups] table init error:", err));
+
 function generateInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -164,21 +181,95 @@ router.get("/groups/:id/moves", async (req, res) => {
       if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
     }
     const { rows } = await pool.query(
-      `SELECT sm.id, sm.move_data, sm.shared_at, u.id AS user_id, u.display_name
+      `SELECT sm.id, sm.move_data, sm.shared_at, u.id AS user_id, u.display_name,
+              COUNT(CASE WHEN v.vote = 'up'   THEN 1 END)::int AS up_count,
+              COUNT(CASE WHEN v.vote = 'down' THEN 1 END)::int AS down_count,
+              MAX(CASE WHEN v.user_id = $2 THEN v.vote END) AS my_vote
        FROM moves_shared_moves sm
        JOIN moves_users u ON u.id = sm.user_id
+       LEFT JOIN moves_group_move_votes v ON v.share_id = sm.id
        WHERE sm.group_id = $1
+       GROUP BY sm.id, sm.move_data, sm.shared_at, u.id, u.display_name
        ORDER BY sm.shared_at DESC
        LIMIT 50`,
-      [id]
+      [id, userId ?? null]
     );
     res.json(rows.map(r => ({
       id: r.id, move: r.move_data,
       sharedBy: { id: r.user_id, displayName: r.display_name },
       sharedAt: r.shared_at,
+      votes: { upCount: r.up_count ?? 0, downCount: r.down_count ?? 0, myVote: r.my_vote ?? null },
     })));
   } catch (err) {
     console.error("group moves GET error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /api/groups/:id/moves/:shareId/vote — vote up or down (creator is blocked server-side)
+router.post("/groups/:id/moves/:shareId/vote", async (req, res) => {
+  const { id, shareId } = req.params;
+  const { userId, vote } = req.body as { userId?: string; vote?: string };
+  if (!userId || !vote || !["up", "down"].includes(vote)) {
+    res.status(400).json({ error: "userId and vote ('up'|'down') required" });
+    return;
+  }
+  try {
+    // Must be a group member
+    const { rows: mem } = await pool.query(
+      "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
+      [id, userId]
+    );
+    if (mem.length === 0) { res.status(403).json({ error: "Not a member" }); return; }
+
+    // Creator cannot vote on their own shared move
+    const { rows: sm } = await pool.query(
+      "SELECT user_id FROM moves_shared_moves WHERE id=$1 AND group_id=$2",
+      [shareId, id]
+    );
+    if (sm.length === 0) { res.status(404).json({ error: "Move not found" }); return; }
+    if (sm[0].user_id === userId) {
+      res.status(403).json({ error: "You cannot vote on your own move" });
+      return;
+    }
+
+    // Toggle: if same vote exists, remove it; otherwise upsert
+    const existing = await pool.query(
+      "SELECT vote FROM moves_group_move_votes WHERE share_id=$1 AND user_id=$2",
+      [shareId, userId]
+    );
+
+    if (existing.rows.length > 0 && existing.rows[0].vote === vote) {
+      // Same vote — remove it (toggle off)
+      await pool.query(
+        "DELETE FROM moves_group_move_votes WHERE share_id=$1 AND user_id=$2",
+        [shareId, userId]
+      );
+    } else {
+      const voteId = generateId();
+      await pool.query(
+        `INSERT INTO moves_group_move_votes (id, share_id, group_id, user_id, vote)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (share_id, user_id) DO UPDATE SET vote = $5`,
+        [voteId, shareId, id, userId, vote]
+      );
+    }
+
+    // Return updated counts
+    const { rows: counts } = await pool.query(
+      `SELECT COUNT(CASE WHEN vote = 'up'   THEN 1 END)::int AS up_count,
+              COUNT(CASE WHEN vote = 'down' THEN 1 END)::int AS down_count,
+              MAX(CASE WHEN user_id = $2 THEN vote END) AS my_vote
+       FROM moves_group_move_votes WHERE share_id = $1`,
+      [shareId, userId]
+    );
+    res.json({
+      upCount: counts[0].up_count ?? 0,
+      downCount: counts[0].down_count ?? 0,
+      myVote: counts[0].my_vote ?? null,
+    });
+  } catch (err) {
+    console.error("group vote POST error:", err);
     res.status(500).json({ error: "Internal error" });
   }
 });
