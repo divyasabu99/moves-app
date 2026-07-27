@@ -57,11 +57,11 @@
   },
   "dependencies": {
     "expo-clipboard": "^8.0.8",
-    "expo-contacts": "^57.0.2",
+    "expo-contacts": "~15.0.11",
     "expo-document-picker": "^14.0.8",
     "expo-file-system": "^19.0.23",
     "expo-image-manipulator": "^14.0.8",
     "fflate": "^0.8.3",
-    "react-native-webview": "^14.0.1"
+    "react-native-webview": "~13.15.0"
   }
 }

@@ -3,32 +3,51 @@ import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 
-function NativeTabLayout() {
-  return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: 'sparkles', selected: 'sparkles' }} />
-        <Label>Plan</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="places">
-        <Icon sf={{ default: 'bookmark', selected: 'bookmark.fill' }} />
-        <Label>Places</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="moves">
-        <Icon sf={{ default: 'map', selected: 'map.fill' }} />
-        <Label>Moves</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="groups">
-        <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
-        <Label>Groups</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
+// NativeTabLayout with Liquid Glass is iOS 26+ only. We guard with a lazy
+// require so a missing or crashing native module never breaks the tab bar on
+// older devices. ClassicTabLayout is always the safe fallback.
+function tryGetNativeLayout(): (() => React.JSX.Element) | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const glassEffect = require('expo-glass-effect');
+    if (!glassEffect?.isLiquidGlassAvailable?.()) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const nativeTabs = require('expo-router/unstable-native-tabs');
+    const { NativeTabs, Icon, Label } = nativeTabs;
+    if (!NativeTabs) return null;
+
+    return function NativeTabLayout() {
+      return (
+        <NativeTabs>
+          <NativeTabs.Trigger name="index">
+            <Icon sf={{ default: 'sparkles', selected: 'sparkles' }} />
+            <Label>Plan</Label>
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger name="places">
+            <Icon sf={{ default: 'bookmark', selected: 'bookmark.fill' }} />
+            <Label>Places</Label>
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger name="moves">
+            <Icon sf={{ default: 'map', selected: 'map.fill' }} />
+            <Label>Moves</Label>
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger name="groups">
+            <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
+            <Label>Groups</Label>
+          </NativeTabs.Trigger>
+        </NativeTabs>
+      );
+    };
+  } catch {
+    return null;
+  }
 }
+
+// Resolve once at module load — avoids repeated require() on every render
+const NativeTabLayout = tryGetNativeLayout();
 
 function ClassicTabLayout() {
   const colors = useColors();
@@ -101,6 +120,6 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) return <NativeTabLayout />;
+  if (NativeTabLayout) return <NativeTabLayout />;
   return <ClassicTabLayout />;
 }
