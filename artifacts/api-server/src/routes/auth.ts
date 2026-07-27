@@ -70,22 +70,16 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const userId = makeId();
-    const code = makeCode();
-    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
 
     await pool.query(
-      `INSERT INTO moves_users (id, display_name, email, password_hash, email_verified, verification_code, verification_expires_at)
-       VALUES ($1, $2, $3, $4, FALSE, $5, $6)`,
-      [userId, nameTrimmed, normalizedEmail, passwordHash, code, expires]
+      `INSERT INTO moves_users (id, display_name, email, password_hash, email_verified)
+       VALUES ($1, $2, $3, $4, TRUE)`,
+      [userId, nameTrimmed, normalizedEmail, passwordHash]
     );
 
-    await sendVerificationEmail(normalizedEmail, nameTrimmed, code).catch(() => {});
-
     const token = signToken(userId, nameTrimmed);
-    const isDev = !process.env.RESEND_API_KEY;
     return res.status(201).json({
-      userId, displayName: nameTrimmed, token, emailVerified: false,
-      ...(isDev ? { devCode: code } : {}),
+      userId, displayName: nameTrimmed, token, emailVerified: true,
     });
   } catch (err: any) {
     console.error("register error", err);
