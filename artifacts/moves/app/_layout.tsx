@@ -35,9 +35,11 @@ function AuthGuard() {
     const current = segments[0] as string | undefined;
 
     const AUTH_SCREENS = ['auth', 'verify-email', 'onboarding'];
+    // Public routes — never redirect, even when logged out
+    const PUBLIC_SCREENS = ['s'];
 
     if (!isAuthenticated) {
-      if (current !== 'auth') router.replace('/auth');
+      if (!PUBLIC_SCREENS.includes(current ?? '') && current !== 'auth') router.replace('/auth');
     } else if (!isVerified) {
       if (current !== 'verify-email') router.replace('/verify-email');
     } else if (!onboardingComplete) {
@@ -71,6 +73,7 @@ function RootLayoutNav() {
         <Stack.Screen name="receipt"     options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="settings"    options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="shared/[token]" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="s/[token]"      options={{ headerShown: false }} />
       </Stack>
     </>
   );
