@@ -1,5 +1,21 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import { pool } from "@workspace/db";
+
+const JWT_SECRET = process.env.SESSION_SECRET ?? "moves-secret-fallback";
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const auth = req.headers.authorization ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) { res.status(401).json({ error: "Authentication required" }); return; }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; displayName: string };
+    (req as any).userId = payload.userId;
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
 
 const router = Router();
 
@@ -346,11 +362,25 @@ router.post("/groups/:id/sync-places", async (req, res) => {
   }
 });
 
-// GET /api/users/lookup?email= — check if an email belongs to a MOVES user
-router.get("/users/lookup", async (req, res) => {
-  const { email } = req.query as { email?: string };
+// GET /api/users/lookup?email=&groupId= — find a MOVES user by email so a group member
+// can add them. Requires the caller to be authenticated AND a member of the given group,
+// preventing open email enumeration by arbitrary callers.
+router.get("/users/lookup", requireAuth, async (req, res) => {
+  const callerId = (req as any).userId as string;
+  const { email, groupId } = req.query as { email?: string; groupId?: string };
   if (!email?.trim()) { res.status(400).json({ error: "email required" }); return; }
+  if (!groupId?.trim()) { res.status(400).json({ error: "groupId required" }); return; }
   try {
+    // Caller must be a member of the stated group
+    const { rows: membership } = await pool.query(
+      "SELECT 1 FROM moves_group_members WHERE group_id=$1 AND user_id=$2",
+      [groupId, callerId]
+    );
+    if (membership.length === 0) {
+      res.status(403).json({ error: "Not a member of this group" });
+      return;
+    }
+
     const { rows } = await pool.query(
       "SELECT id, display_name FROM moves_users WHERE LOWER(email) = $1",
       [email.trim().toLowerCase()]

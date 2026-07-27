@@ -103,7 +103,7 @@ export default function GroupDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { userId } = useUser();
+  const { userId, user } = useUser();
   const { moves } = useMoves();
 
   const [group, setGroup] = useState<GroupDetail | null>(null);
@@ -244,9 +244,11 @@ export default function GroupDetailScreen() {
     const contactKey = contact.id ?? email;
     setAddingContact(contactKey);
     try {
-      // Look up whether this email is a MOVES user
+      // Look up whether this email is a MOVES user (auth-gated, scoped to this group)
+      const token = user?.token ?? '';
       const lookupRes = await fetch(
-        `${BASE_URL()}/users/lookup?email=${encodeURIComponent(email)}`
+        `${BASE_URL()}/users/lookup?email=${encodeURIComponent(email)}&groupId=${encodeURIComponent(id as string)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       const lookup = await lookupRes.json();
 
