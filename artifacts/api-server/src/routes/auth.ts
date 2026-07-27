@@ -81,9 +81,12 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 
     await sendVerificationEmail(normalizedEmail, nameTrimmed, verificationCode).catch(() => {});
 
+    // Return a token immediately so the app can stay logged in during the verification step.
+    // The mobile client checks emailVerified and shows the verification screen if false.
+    const token = signToken(userId, nameTrimmed);
     const isDev = !process.env.RESEND_API_KEY;
     return res.status(201).json({
-      userId, displayName: nameTrimmed, emailVerified: false,
+      userId, displayName: nameTrimmed, token, emailVerified: false,
       ...(isDev ? { devCode: verificationCode } : {}),
     });
   } catch (err: any) {
