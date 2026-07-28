@@ -30,35 +30,20 @@ router.post("/lookup-place", async (req, res) => {
         messages: [
           {
             role: "system",
-            content: `You are an expert on NYC restaurants, bars, cafes, and cultural spots.
-Given a place name, return what you know about it as JSON.
-
-Respond ONLY with valid JSON matching this shape exactly:
-{
-  "found": true | false,
-  "category": "restaurant" | "bar" | "cafe" | "museum" | "park" | "shop" | "activity",
-  "neighborhood": "<NYC neighborhood name, e.g. West Village>",
-  "priceLevel": 1 | 2 | 3 | 4,
-  "address": "<full street address or empty string>",
-  "vibes": ["<vibe1>", "<vibe2>", "<vibe3>"],
-  "vibeDescription": "<single punchy sentence capturing the feel>",
-  "cuisine": "<primary cuisine or drink style, e.g. Italian, Japanese, Cocktails, Wine Bar — restaurants/bars/cafes only, empty string otherwise>",
-  "tags": ["<tag1>", "<tag2>", "<tag3>"],
-  "website": "<official website URL, e.g. https://example.com, or empty string if unknown>"
-}
-
-Rules:
-- Set found=false if you don't recognise this as a specific real NYC place.
-- priceLevel: 1=$, 2=$$, 3=$$$, 4=$$$$
-- vibes: up to 3 short mood descriptors like "cozy", "date night", "trendy", "loud", "outdoor", "late night", "brunch spot"
-- vibeDescription: a single punchy sentence, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge" — always include this, never leave it empty
-- cuisine: the primary cuisine or concept for restaurants/cafes/bars (e.g. "Italian", "Ramen", "Cocktail Bar", "Wine Bar", "Brunch", "Korean BBQ"). Leave empty string for non-food venues.
-- tags: 3-6 short searchable descriptors capturing what makes this place special, e.g. ["rooftop", "outdoor seating", "late night", "cash only", "brunch", "tasting menu", "live music", "dive bar", "speakeasy", "happy hour", "BYOB", "omakase", "pet-friendly", "views"]. Pick tags that are genuinely useful for discovery. Never overlap with vibes exactly.
-- If found=false still try to fill all fields with reasonable guesses based on the name.`,
+            content: `You are a local places expert for the NYC metro area. Given a partial place name, return up to 5 real places that match within the search area.
+Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood", "priceLevel", "address", "vibeDescription", "vibes", "lat", "lng" }, ... ] }
+- category: "restaurant"|"bar"|"cafe"|"museum"|"park"|"shop"|"activity"
+- priceLevel: 1-4
+- vibes: array of up to 3 short strings
+- vibeDescription: a single punchy sentence capturing the feel, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge"
+- lat/lng: approximate decimal coordinates for the specific place (not just the neighborhood centroid — as close to the actual address as you know)
+- Search area covers all NYC boroughs plus surrounding areas within 10 miles (Jersey City, Hoboken, Astoria, Long Island City, etc.)
+- Only include places you are confident are real — never invent places
+- If fewer than 5 match, return fewer`,
           },
           {
             role: "user",
-            content: `Place name: "${name.trim()}"`,
+            content: `Partial name: "${query.trim()}" ${locationHint}`,
           },
         ],
       }),
@@ -71,7 +56,7 @@ Rules:
 
     const data = await response.json() as any;
     const content = data.choices?.[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
 
     res.json({
       found: parsed.found ?? false,
@@ -123,11 +108,12 @@ router.post("/places/autocomplete", async (req, res) => {
           {
             role: "system",
             content: `You are a local places expert for the NYC metro area. Given a partial place name, return up to 5 real places that match within the search area.
-Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood", "priceLevel", "address", "vibeDescription", "vibes" }, ... ] }
+Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood", "priceLevel", "address", "vibeDescription", "vibes", "lat", "lng" }, ... ] }
 - category: "restaurant"|"bar"|"cafe"|"museum"|"park"|"shop"|"activity"
 - priceLevel: 1-4
 - vibes: array of up to 3 short strings
 - vibeDescription: a single punchy sentence capturing the feel, e.g. "rustic Italian tavern with candlelit charm" or "loud frat-friendly dive bar" or "sleek upscale cocktail lounge"
+- lat/lng: approximate decimal coordinates for the specific place (not just the neighborhood centroid — as close to the actual address as you know)
 - Search area covers all NYC boroughs plus surrounding areas within 10 miles (Jersey City, Hoboken, Astoria, Long Island City, etc.)
 - Only include places you are confident are real — never invent places
 - If fewer than 5 match, return fewer`,
@@ -145,7 +131,12 @@ Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood",
     const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
     // Ensure each suggestion has vibeDescription
     const suggestions = Array.isArray(parsed.suggestions)
-      ? parsed.suggestions.map((s: any) => ({ ...s, vibeDescription: s.vibeDescription ?? "" }))
+      ? parsed.suggestions.map((s: any) => ({
+          ...s,
+          vibeDescription: s.vibeDescription ?? "",
+          lat: typeof s.lat === "number" ? s.lat : undefined,
+          lng: typeof s.lng === "number" ? s.lng : undefined,
+        }))
       : [];
     res.json({ suggestions });
   } catch (err: any) {

@@ -27,6 +27,32 @@ interface Suggestion {
   lng?: number;
 }
 
+// Neighborhood centroids — fallback when the API doesn't return exact coords
+const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
+  'Lower East Side':[40.7150,-73.9830],'East Village':[40.7265,-73.9815],
+  'West Village':[40.7341,-74.0060],'Greenwich Village':[40.7338,-74.0020],
+  'SoHo':[40.7230,-74.0030],'NoLita':[40.7231,-73.9941],'Nolita':[40.7231,-73.9941],
+  'Tribeca':[40.7163,-74.0086],'Financial District':[40.7075,-74.0090],
+  'Chinatown':[40.7158,-73.9970],'Little Italy':[40.7191,-73.9973],
+  'Midtown':[40.7549,-73.9840],'Midtown East':[40.7527,-73.9718],
+  'Midtown West':[40.7580,-73.9855],"Hell's Kitchen":[40.7638,-73.9920],
+  'Chelsea':[40.7465,-74.0014],'Flatiron':[40.7414,-73.9897],
+  'NoMad':[40.7448,-73.9878],'Gramercy':[40.7382,-73.9844],
+  'Murray Hill':[40.7488,-73.9773],'Upper East Side':[40.7736,-73.9566],
+  'Upper West Side':[40.7870,-73.9754],'Harlem':[40.8116,-73.9465],
+  'Williamsburg':[40.7081,-73.9571],'Bushwick':[40.6944,-73.9213],
+  'Park Slope':[40.6681,-73.9800],'Bed-Stuy':[40.6872,-73.9418],
+  'Bedford-Stuyvesant':[40.6872,-73.9418],'Fort Greene':[40.6885,-73.9754],
+  'DUMBO':[40.7033,-73.9890],'Brooklyn Heights':[40.6962,-73.9937],
+  'Greenpoint':[40.7290,-73.9511],'Long Island City':[40.7447,-73.9484],
+  'Astoria':[40.7721,-73.9301],'Flushing':[40.7678,-73.8330],
+};
+
+function resolveCoords(s: Suggestion): [number, number] | null {
+  if (s.lat != null && s.lng != null) return [s.lat, s.lng];
+  return NEIGHBORHOOD_COORDS[s.neighborhood] ?? null;
+}
+
 function buildMapHtml(lat: number, lng: number, name: string): string {
   return `<!DOCTYPE html>
 <html>
@@ -139,12 +165,15 @@ export default function AddPlaceScreen() {
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
 
-  // Map HTML: show pin when a place is selected, otherwise blank NYC map
-  const mapHtml = selected?.lat && selected?.lng
-    ? buildMapHtml(selected.lat, selected.lng, selected.name)
+  // Pin target: selected place, or first suggestion while dropdown is open
+  const pinTarget = selected ?? (suggestions.length > 0 ? suggestions[0] : null);
+  const pinCoords = pinTarget ? resolveCoords(pinTarget) : null;
+
+  const mapHtml = pinCoords
+    ? buildMapHtml(pinCoords[0], pinCoords[1], pinTarget!.name)
     : EMPTY_MAP_HTML;
 
-  const mapKey = selected ? `${selected.lat}-${selected.lng}` : 'empty';
+  const mapKey = pinCoords ? `${pinCoords[0].toFixed(4)}-${pinCoords[1].toFixed(4)}` : 'empty';
 
   // ── User location for proximity-sorted autocomplete ───────────────────────
   useEffect(() => {
