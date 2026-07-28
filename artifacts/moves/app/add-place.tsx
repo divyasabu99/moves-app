@@ -1,27 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity,
+  TextInput, Platform, ActivityIndicator, KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import { WebView } from 'react-native-webview';
 import { useColors } from '@/hooks/useColors';
 import { usePlaces } from '@/context/PlacesContext';
 import { PlaceCategory, BudgetLevel } from '@/types';
-import { CATEGORY_LABELS, NEIGHBORHOODS } from '@/lib/itinerary';
 
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
-
-const CATEGORIES: PlaceCategory[] = ['restaurant', 'bar', 'cafe', 'museum', 'activity', 'park', 'shop'];
-const BUDGET_OPTIONS: { level: BudgetLevel; label: string }[] = [
-  { level: 1, label: '$' },
-  { level: 2, label: '$$' },
-  { level: 3, label: '$$$' },
-  { level: 4, label: '$$$$' },
-];
 
 interface Suggestion {
   name: string;
@@ -31,7 +23,104 @@ interface Suggestion {
   address: string;
   vibes: string[];
   vibeDescription?: string;
+  lat?: number;
+  lng?: number;
 }
+
+function buildMapHtml(lat: number, lng: number, name: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body,#map{width:100%;height:100%;background:#0F0F0F}
+    .leaflet-control-zoom a{background:#1C1C1E!important;color:#FAFAFA!important;border-color:#3A3A3C!important}
+    .leaflet-control-zoom a:hover{background:#2C2C2E!important}
+    .leaflet-control-attribution{background:rgba(15,15,15,0.7)!important;color:#555!important}
+    .leaflet-control-attribution a{color:#777!important}
+    .leaflet-popup-content-wrapper{
+      background:#1C1C1E;color:#FAFAFA;
+      border-radius:12px;border:1px solid rgba(255,255,255,0.1);
+      box-shadow:0 4px 24px rgba(0,0,0,0.6)
+    }
+    .leaflet-popup-tip-container{display:none}
+    .leaflet-popup-content{margin:10px 14px!important;font-family:sans-serif;font-size:13px;font-weight:700;color:#FAFAFA}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  var map = L.map('map',{center:[${lat},${lng}],zoom:15,zoomControl:true,attributionControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains:'abcd',maxZoom:19
+  }).addTo(map);
+  var icon = L.divIcon({
+    html:'<div style="width:18px;height:18px;background:#FF3B5C;border-radius:50%;border:3px solid rgba(255,255,255,0.95);box-shadow:0 0 0 4px rgba(255,59,92,0.3),0 2px 10px rgba(0,0,0,0.6);"></div>',
+    iconSize:[18,18],iconAnchor:[9,9],className:''
+  });
+  L.marker([${lat},${lng}],{icon:icon}).addTo(map).bindPopup(${JSON.stringify(name)}).openPopup();
+</script>
+</body>
+</html>`;
+}
+
+const DEFAULT_MAP_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body,#map{width:100%;height:100%;background:#0F0F0F}
+    .leaflet-control-zoom a{background:#1C1C1E!important;color:#FAFAFA!important;border-color:#3A3A3C!important}
+    .leaflet-control-attribution{background:rgba(15,15,15,0.7)!important;color:#555!important}
+    .leaflet-control-attribution a{color:#777!important}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  L.map('map',{center:[40.7306,-73.9352],zoom:12,zoomControl:true,attributionControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains:'abcd',maxZoom:19
+  }).addTo(_);
+</script>
+</body>
+</html>`;
+
+// Minimal default map that just shows NYC with no markers
+const EMPTY_MAP_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body,#map{width:100%;height:100%;background:#0F0F0F}
+    .leaflet-control-zoom a{background:#1C1C1E!important;color:#FAFAFA!important;border-color:#3A3A3C!important}
+    .leaflet-control-attribution{background:rgba(15,15,15,0.7)!important;color:#555!important}
+    .leaflet-control-attribution a{color:#777!important}
+  </style>
+</head>
+<body><div id="map"></div>
+<script>
+  var m=L.map('map',{center:[40.7306,-73.9352],zoom:12,zoomControl:true,attributionControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains:'abcd',maxZoom:19
+  }).addTo(m);
+</script>
+</body></html>`;
 
 export default function AddPlaceScreen() {
   const colors = useColors();
@@ -39,32 +128,25 @@ export default function AddPlaceScreen() {
   const { addPlace } = usePlaces();
 
   const [name, setName] = useState('');
-  const [category, setCategory] = useState<PlaceCategory>('restaurant');
-  const [neighborhood, setNeighborhood] = useState('');
-  const [priceLevel, setPriceLevel] = useState<BudgetLevel>(2);
-  const [address, setAddress] = useState('');
-  const [vibeDescription, setVibeDescription] = useState('');
-  const [notes, setNotes] = useState('');
-  const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
-
-  // Autocomplete state
+  const [selected, setSelected] = useState<Suggestion | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [autoFilled, setAutoFilled] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastQuery = useRef('');
-
-  const canSave = name.trim().length > 0 && neighborhood.trim().length > 0;
-  const filteredNeighborhoods = neighborhood.length > 1
-    ? NEIGHBORHOODS.filter(n => n.toLowerCase().includes(neighborhood.toLowerCase())).slice(0, 5)
-    : [];
+  const isAutoFilled = useRef(false);
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
-  const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 32);
 
-  // ── Get user location once on mount ──────────────────────────────────────
+  // Map HTML: show pin when a place is selected, otherwise blank NYC map
+  const mapHtml = selected?.lat && selected?.lng
+    ? buildMapHtml(selected.lat, selected.lng, selected.name)
+    : EMPTY_MAP_HTML;
+
+  const mapKey = selected ? `${selected.lat}-${selected.lng}` : 'empty';
+
+  // ── User location for proximity-sorted autocomplete ───────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -72,11 +154,11 @@ export default function AddPlaceScreen() {
         if (status !== 'granted') return;
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-      } catch { /* location optional */ }
+      } catch { /* optional */ }
     })();
   }, []);
 
-  // ── Autocomplete debounce ─────────────────────────────────────────────────
+  // ── Autocomplete ──────────────────────────────────────────────────────────
   const fetchSuggestions = useCallback(async (query: string) => {
     if (lastQuery.current === query) return;
     lastQuery.current = query;
@@ -98,52 +180,52 @@ export default function AddPlaceScreen() {
 
   useEffect(() => {
     const trimmed = name.trim();
-    // Clear suggestions if name was wiped or selected
     if (trimmed.length < 2) { setSuggestions([]); lastQuery.current = ''; return; }
-    // Don't re-fetch if auto-filled and name unchanged
-    if (autoFilled) return;
-
+    if (isAutoFilled.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchSuggestions(trimmed), 400);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [name, fetchSuggestions, autoFilled]);
+  }, [name, fetchSuggestions]);
 
-  // ── Apply a suggestion ────────────────────────────────────────────────────
-  const applySuggestion = (s: Suggestion) => {
+  // ── Pick a suggestion ─────────────────────────────────────────────────────
+  const pickSuggestion = (s: Suggestion) => {
     Haptics.selectionAsync();
+    isAutoFilled.current = true;
     setName(s.name);
-    setCategory(s.category ?? 'restaurant');
-    setNeighborhood(s.neighborhood ?? '');
-    setPriceLevel(s.priceLevel ?? 2);
-    setAddress(s.address ?? '');
-    setVibeDescription(s.vibeDescription ?? '');
+    setSelected(s);
     setSuggestions([]);
-    setAutoFilled(true);
     lastQuery.current = s.name;
   };
 
   // ── Save ──────────────────────────────────────────────────────────────────
+  const canSave = name.trim().length > 0;
+
   const handleSave = () => {
     if (!canSave) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addPlace({
       name: name.trim(),
-      category,
-      neighborhood: neighborhood.trim(),
-      priceLevel,
+      category: selected?.category ?? 'restaurant',
+      neighborhood: selected?.neighborhood ?? '',
+      priceLevel: selected?.priceLevel ?? 2,
       source: 'manual',
-      vibes: [],
-      vibeDescription: vibeDescription.trim() || undefined,
-      address: address.trim() || undefined,
-      notes: notes.trim() || undefined,
+      vibes: selected?.vibes ?? [],
+      vibeDescription: selected?.vibeDescription,
+      address: selected?.address,
+      ...(selected?.lat != null && selected?.lng != null
+        ? { lat: selected.lat, lng: selected.lng }
+        : {}),
     });
     router.back();
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.root, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad, borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { paddingTop: topPad, backgroundColor: colors.background }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} activeOpacity={0.7}>
           <Ionicons name="close" size={22} color={colors.foreground} />
         </TouchableOpacity>
@@ -151,52 +233,59 @@ export default function AddPlaceScreen() {
           Add a Place
         </Text>
         <TouchableOpacity onPress={handleSave} disabled={!canSave} style={styles.headerBtn} activeOpacity={0.7}>
-          <Text style={[styles.saveText, {
+          <Text style={[styles.addText, {
             color: canSave ? colors.primary : colors.mutedForeground,
             fontFamily: 'Inter_600SemiBold',
-          }]}>Save</Text>
+          }]}>Add</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: botPad }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Name + autocomplete */}
-        <View style={styles.field}>
-          <View style={styles.labelRow}>
-            <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
-              NAME
-            </Text>
-            {loadingSuggestions && (
-              <View style={styles.badge}>
-                <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.65 }] }} />
-                <Text style={[styles.badgeText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
-                  Searching…
-                </Text>
-              </View>
-            )}
-            {autoFilled && !loadingSuggestions && (
-              <View style={[styles.badge, { backgroundColor: colors.primary + '18' }]}>
-                <Ionicons name="sparkles" size={11} color={colors.primary} />
-                <Text style={[styles.badgeText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
-                  Auto-filled
-                </Text>
-              </View>
-            )}
-          </View>
+      {/* Map fills the rest of the screen */}
+      <View style={styles.mapContainer}>
+        <WebView
+          key={mapKey}
+          source={{ html: mapHtml }}
+          style={styles.map}
+          scrollEnabled={false}
+          bounces={false}
+          originWhitelist={['*']}
+          javaScriptEnabled
+          domStorageEnabled
+        />
 
-          <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {/* Search bar overlaid on map */}
+        <View style={[styles.searchOverlay, { paddingHorizontal: 16, paddingTop: 12 }]}
+              pointerEvents="box-none">
+          <View style={[styles.searchBar, {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            shadowColor: '#000',
+          }]}>
+            <Ionicons name="search" size={17} color={colors.mutedForeground} />
             <TextInput
               value={name}
-              onChangeText={t => { setName(t); if (autoFilled) setAutoFilled(false); }}
-              placeholder="Start typing a place name…"
+              onChangeText={t => {
+                isAutoFilled.current = false;
+                setName(t);
+                if (!t.trim()) setSelected(null);
+              }}
+              placeholder="Search for a place…"
               placeholderTextColor={colors.mutedForeground}
-              style={[styles.textInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
+              style={[styles.searchInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
               autoFocus
-              returnKeyType="done"
+              returnKeyType="search"
             />
+            {loadingSuggestions && (
+              <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.8 }] }} />
+            )}
+            {name.length > 0 && !loadingSuggestions && (
+              <TouchableOpacity
+                onPress={() => { setName(''); setSelected(null); setSuggestions([]); isAutoFilled.current = false; lastQuery.current = ''; }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Autocomplete dropdown */}
@@ -205,7 +294,7 @@ export default function AddPlaceScreen() {
               {suggestions.map((s, i) => (
                 <TouchableOpacity
                   key={`${s.name}-${i}`}
-                  onPress={() => applySuggestion(s)}
+                  onPress={() => pickSuggestion(s)}
                   activeOpacity={0.7}
                   style={[
                     styles.dropdownRow,
@@ -220,10 +309,11 @@ export default function AddPlaceScreen() {
                     <Text style={[styles.dropdownName, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]} numberOfLines={1}>
                       {s.name}
                     </Text>
-                    <Text style={[styles.dropdownMeta, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
-                      {s.neighborhood} · {CATEGORY_LABELS[s.category] ?? s.category}
-                      {s.address ? ` · ${s.address}` : ''}
-                    </Text>
+                    {(s.neighborhood || s.address) && (
+                      <Text style={[styles.dropdownMeta, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
+                        {[s.neighborhood, s.address].filter(Boolean).join(' · ')}
+                      </Text>
+                    )}
                   </View>
                   <Ionicons name="arrow-forward" size={14} color={colors.mutedForeground} />
                 </TouchableOpacity>
@@ -231,186 +321,71 @@ export default function AddPlaceScreen() {
             </View>
           )}
         </View>
-
-        {/* Category */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>CATEGORY</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {CATEGORIES.map(cat => {
-              const active = cat === category;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  onPress={() => { setCategory(cat); Haptics.selectionAsync(); }}
-                  activeOpacity={0.75}
-                  style={[styles.chip, {
-                    backgroundColor: active ? colors.primary : colors.card,
-                    borderColor: active ? colors.primary : colors.border,
-                  }]}
-                >
-                  <Text style={[styles.chipText, {
-                    color: active ? colors.primaryForeground : colors.foreground,
-                    fontFamily: active ? 'Inter_600SemiBold' : 'Inter_400Regular',
-                  }]}>
-                    {CATEGORY_LABELS[cat]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {/* Neighborhood */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>NEIGHBORHOOD</Text>
-          <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="location-outline" size={16} color={colors.mutedForeground} />
-            <TextInput
-              value={neighborhood}
-              onChangeText={t => { setNeighborhood(t); setShowNeighborhoodSuggestions(true); }}
-              onBlur={() => setTimeout(() => setShowNeighborhoodSuggestions(false), 150)}
-              placeholder="e.g. West Village"
-              placeholderTextColor={colors.mutedForeground}
-              style={[styles.textInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
-            />
-          </View>
-          {showNeighborhoodSuggestions && filteredNeighborhoods.length > 0 && (
-            <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {filteredNeighborhoods.map((n, i) => (
-                <TouchableOpacity
-                  key={n}
-                  onPress={() => { setNeighborhood(n); setShowNeighborhoodSuggestions(false); }}
-                  style={[
-                    styles.dropdownRow,
-                    { borderBottomColor: colors.border },
-                    i === filteredNeighborhoods.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <Text style={[styles.dropdownName, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}>
-                    {n}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Price Level */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>PRICE LEVEL</Text>
-          <View style={styles.budgetRow}>
-            {BUDGET_OPTIONS.map(opt => {
-              const active = opt.level === priceLevel;
-              return (
-                <TouchableOpacity
-                  key={opt.level}
-                  onPress={() => { setPriceLevel(opt.level); Haptics.selectionAsync(); }}
-                  activeOpacity={0.75}
-                  style={[styles.budgetChip, {
-                    flex: 1,
-                    backgroundColor: active ? colors.accent : colors.card,
-                    borderColor: active ? colors.accent : colors.border,
-                  }]}
-                >
-                  <Text style={[styles.budgetText, {
-                    color: active ? colors.accentForeground : colors.mutedForeground,
-                    fontFamily: active ? 'Inter_700Bold' : 'Inter_400Regular',
-                  }]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Address */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
-            ADDRESS <Text style={{ fontWeight: '400', letterSpacing: 0 }}>(optional)</Text>
-          </Text>
-          <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TextInput
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Street address"
-              placeholderTextColor={colors.mutedForeground}
-              style={[styles.textInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
-            />
-          </View>
-        </View>
-
-        {/* Notes */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
-            NOTES <Text style={{ fontWeight: '400', letterSpacing: 0 }}>(optional)</Text>
-          </Text>
-          <View style={[styles.inputWrap, styles.notesWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="What do you love about this spot?"
-              placeholderTextColor={colors.mutedForeground}
-              style={[styles.textInput, styles.notesInput, { color: colors.foreground, fontFamily: 'Inter_400Regular' }]}
-              multiline
-            />
-          </View>
-        </View>
-      </ScrollView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    zIndex: 10,
   },
   headerBtn: { width: 50, height: 36, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17 },
-  saveText: { fontSize: 16 },
-  content: { padding: 20 },
-  field: { marginBottom: 22 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  label: { fontSize: 11, letterSpacing: 1.5 },
-  badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100,
+  addText: { fontSize: 16 },
+  mapContainer: { flex: 1, position: 'relative' },
+  map: { flex: 1 },
+  searchOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
   },
-  badgeText: { fontSize: 11 },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 13,
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  textInput: { flex: 1, fontSize: 15, padding: 0 },
-  notesWrap: { alignItems: 'flex-start', paddingVertical: 10 },
-  notesInput: { minHeight: 70, textAlignVertical: 'top' },
-  // Autocomplete dropdown
+  searchInput: { flex: 1, fontSize: 15, padding: 0 },
   dropdown: {
-    marginTop: 4, borderRadius: 12, borderWidth: 1, overflow: 'hidden',
+    marginTop: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
   dropdownRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   dropdownIcon: {
-    width: 28, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
+    width: 28, height: 28, borderRadius: 7,
+    alignItems: 'center', justifyContent: 'center',
   },
   dropdownInfo: { flex: 1 },
   dropdownName: { fontSize: 14 },
   dropdownMeta: { fontSize: 12, marginTop: 1 },
-  // Category chips
-  chipRow: { flexDirection: 'row', gap: 8 },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 100, borderWidth: 1,
-  },
-  chipText: { fontSize: 13 },
-  // Budget
-  budgetRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  budgetChip: {
-    paddingVertical: 11, borderRadius: 12, borderWidth: 1, alignItems: 'center',
-  },
-  budgetText: { fontSize: 15 },
 });
