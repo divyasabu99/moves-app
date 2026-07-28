@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Alert, Platform, ActivityIndicator,
@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { MoveCard } from '@/components/MoveCard';
+import { ShareToGroupSheet } from '@/components/ShareToGroupSheet';
 import { useMoves } from '@/context/MovesContext';
 import { Move } from '@/types';
 
@@ -16,6 +17,7 @@ export default function MovesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { moves, removeMove, loading } = useMoves();
+  const [groupShareTarget, setGroupShareTarget] = useState<Move | null>(null);
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 16);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 100);
@@ -28,10 +30,11 @@ export default function MovesScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       move.title,
-      'Remove this move?',
+      undefined,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Share to Group', onPress: () => setGroupShareTarget(move) },
         { text: 'Remove', style: 'destructive', onPress: () => removeMove(move.id) },
+        { text: 'Cancel', style: 'cancel' },
       ]
     );
   };
@@ -110,6 +113,12 @@ export default function MovesScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <ShareToGroupSheet
+        move={groupShareTarget}
+        visible={groupShareTarget !== null}
+        onClose={() => setGroupShareTarget(null)}
+      />
     </View>
   );
 }

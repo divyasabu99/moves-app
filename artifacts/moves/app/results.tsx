@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, Modal, FlatList, ActivityIndicator,
+  Platform, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -13,200 +13,10 @@ import { usePlaces } from '@/context/PlacesContext';
 import { useMoves } from '@/context/MovesContext';
 import { useUser } from '@/context/UserContext';
 import { generateItineraries, VIBE_SEQUENCES } from '@/lib/itinerary';
-import { PlanInput, GeneratedItinerary, Move, Group, Place, GroupMemberPlaces } from '@/types';
+import { PlanInput, GeneratedItinerary, Move, Place, GroupMemberPlaces } from '@/types';
+import { ShareToGroupSheet } from '@/components/ShareToGroupSheet';
 
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
-
-// ── Share-to-group bottom sheet ───────────────────────────────────────────────
-function ShareSheet({
-  move,
-  visible,
-  onClose,
-}: {
-  move: Move | null;
-  visible: boolean;
-  onClose: () => void;
-}) {
-  const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const { userId, user } = useUser();
-
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [sharedTo, setSharedTo] = useState<Set<string>>(new Set());
-  const [sharingId, setSharingId] = useState<string | null>(null);
-  const [fetchError, setFetchError] = useState(false);
-
-  const fetchGroups = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
-    setFetchError(false);
-    try {
-      const res = await fetch(`${BASE_URL()}/groups?userId=${encodeURIComponent(userId)}`);
-      if (!res.ok) throw new Error();
-      setGroups(await res.json());
-    } catch {
-      setFetchError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  // Fetch groups whenever sheet opens
-  React.useEffect(() => {
-    if (visible) {
-      setSharedTo(new Set());
-      fetchGroups();
-    }
-  }, [visible, fetchGroups]);
-
-  const handleShare = async (group: Group) => {
-    if (!move || !userId || sharedTo.has(group.id)) return;
-    setSharingId(group.id);
-    try {
-      const res = await fetch(`${BASE_URL()}/groups/${group.id}/moves`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token ?? ''}` },
-        body: JSON.stringify({ move }),
-      });
-      if (!res.ok) throw new Error();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSharedTo(prev => new Set(prev).add(group.id));
-    } catch {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setSharingId(null);
-    }
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[styles.sheet, { backgroundColor: colors.background, paddingBottom: insets.bottom + 24 }]}>
-        {/* Sheet header */}
-        <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
-          <View style={styles.sheetHandleWrap}>
-            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-          </View>
-          <View style={styles.sheetTitleRow}>
-            <View>
-              <Text style={[styles.sheetTitle, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>
-                Share to a Group
-              </Text>
-              {move && (
-                <Text style={[styles.sheetMoveName, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
-                  {move.title}
-                </Text>
-              )}
-            </View>
-            <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Content */}
-        {loading ? (
-          <View style={styles.sheetCenter}>
-            <ActivityIndicator color={colors.primary} size="large" />
-          </View>
-        ) : fetchError ? (
-          <View style={styles.sheetCenter}>
-            <Ionicons name="wifi-outline" size={36} color={colors.mutedForeground} />
-            <Text style={[styles.sheetEmptyText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-              Couldn't load groups.
-            </Text>
-            <TouchableOpacity onPress={fetchGroups} activeOpacity={0.7}
-              style={[styles.retryBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.retryText, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : groups.length === 0 ? (
-          <View style={styles.sheetCenter}>
-            <Ionicons name="people-outline" size={40} color={colors.mutedForeground} />
-            <Text style={[styles.sheetEmptyTitle, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
-              No groups yet
-            </Text>
-            <Text style={[styles.sheetEmptyText, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-              Create or join a group in the Groups tab to share moves with friends.
-            </Text>
-            <TouchableOpacity
-              onPress={() => { onClose(); router.push('/(tabs)/groups'); }}
-              activeOpacity={0.8}
-              style={[styles.goGroupsBtn, { backgroundColor: colors.primary }]}
-            >
-              <Ionicons name="people" size={15} color={colors.primaryForeground} />
-              <Text style={[styles.goGroupsBtnText, { color: colors.primaryForeground, fontFamily: 'Inter_600SemiBold' }]}>
-                Go to Groups
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <FlatList
-            data={groups}
-            keyExtractor={g => g.id}
-            contentContainerStyle={styles.groupList}
-            renderItem={({ item }) => {
-              const isShared = sharedTo.has(item.id);
-              const isSharing = sharingId === item.id;
-              return (
-                <TouchableOpacity
-                  onPress={() => handleShare(item)}
-                  disabled={isShared || isSharing}
-                  activeOpacity={0.75}
-                  style={[styles.groupRow, {
-                    backgroundColor: isShared ? colors.muted : colors.card,
-                    borderColor: isShared ? colors.border : colors.border,
-                  }]}
-                >
-                  {/* Avatar */}
-                  <View style={[styles.groupAvatar, {
-                    backgroundColor: isShared ? colors.border : colors.primary,
-                  }]}>
-                    {isShared
-                      ? <Ionicons name="checkmark" size={18} color={colors.mutedForeground} />
-                      : <Text style={[styles.groupAvatarLetter, { color: colors.primaryForeground, fontFamily: 'Inter_700Bold' }]}>
-                          {item.name.charAt(0).toUpperCase()}
-                        </Text>
-                    }
-                  </View>
-
-                  {/* Info */}
-                  <View style={styles.groupRowInfo}>
-                    <Text style={[styles.groupRowName, {
-                      color: isShared ? colors.mutedForeground : colors.foreground,
-                      fontFamily: 'Inter_600SemiBold',
-                    }]} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={[styles.groupRowMeta, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-                      {item.memberCount} {item.memberCount === 1 ? 'member' : 'members'}
-                    </Text>
-                  </View>
-
-                  {/* Action */}
-                  {isSharing ? (
-                    <ActivityIndicator color={colors.primary} size="small" />
-                  ) : isShared ? (
-                    <Text style={[styles.sharedLabel, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>
-                      Shared
-                    </Text>
-                  ) : (
-                    <View style={[styles.shareChip, { backgroundColor: colors.primary }]}>
-                      <Ionicons name="share-outline" size={13} color={colors.primaryForeground} />
-                      <Text style={[styles.shareChipText, { color: colors.primaryForeground, fontFamily: 'Inter_500Medium' }]}>
-                        Share
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            }}
-          />
-        )}
-      </View>
-    </Modal>
-  );
-}
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function ResultsScreen() {
@@ -518,8 +328,7 @@ export default function ResultsScreen() {
         </ScrollView>
       )}
 
-      {/* Share sheet */}
-      <ShareSheet
+      <ShareToGroupSheet
         move={shareTarget}
         visible={!!shareTarget}
         onClose={() => setShareTarget(null)}

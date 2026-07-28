@@ -12,6 +12,7 @@ import { useUser } from '@/context/UserContext';
 import { Stop, TransitMode, BudgetLevel } from '@/types';
 import { CATEGORY_LABELS, CATEGORY_ICONS } from '@/lib/itinerary';
 import { ShareMoveSheet } from '@/components/ShareMoveSheet';
+import { ShareToGroupSheet } from '@/components/ShareToGroupSheet';
 
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -101,6 +102,7 @@ export default function MoveDetailScreen() {
 
   const move = moves.find(m => m.id === id);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [showGroupSheet, setShowGroupSheet] = useState(false);
   const [shareRecipientCount, setShareRecipientCount] = useState(0);
 
   // Load share stats when screen mounts (non-blocking)
@@ -455,17 +457,29 @@ export default function MoveDetailScreen() {
           )}
         </SectionBlock>
 
-        {/* ── Action ── */}
-        <TouchableOpacity
-          onPress={() => setShowShareSheet(true)}
-          activeOpacity={0.85}
-          style={[styles.shareBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-        >
-          <Ionicons name="paper-plane-outline" size={17} color={colors.foreground} />
-          <Text style={[styles.shareBtnText, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
-            Share this move
-          </Text>
-        </TouchableOpacity>
+        {/* ── Actions ── */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            onPress={() => setShowShareSheet(true)}
+            activeOpacity={0.85}
+            style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            <Ionicons name="paper-plane-outline" size={17} color={colors.foreground} />
+            <Text style={[styles.actionBtnText, { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }]}>
+              Share via Link
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowGroupSheet(true)}
+            activeOpacity={0.85}
+            style={[styles.actionBtn, { backgroundColor: colors.primary, borderColor: 'transparent' }]}
+          >
+            <Ionicons name="people-outline" size={17} color={colors.primaryForeground} />
+            <Text style={[styles.actionBtnText, { color: colors.primaryForeground, fontFamily: 'Inter_600SemiBold' }]}>
+              Share to Group
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           onPress={handleToggleDone}
@@ -494,6 +508,11 @@ export default function MoveDetailScreen() {
         visible={showShareSheet}
         onClose={() => setShowShareSheet(false)}
         onShared={handleShared}
+      />
+      <ShareToGroupSheet
+        move={move}
+        visible={showGroupSheet}
+        onClose={() => setShowGroupSheet(false)}
       />
     </View>
   );
@@ -644,12 +663,13 @@ const styles = StyleSheet.create({
   },
   sharedPillText: { fontSize: 12 },
 
-  // Share button
-  shareBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 1,
+  // Action row (Share via Link + Share to Group)
+  actionRow: { flexDirection: 'row', gap: 10 },
+  actionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 7, paddingVertical: 14, borderRadius: 14, borderWidth: 1,
   },
-  shareBtnText: { fontSize: 15 },
+  actionBtnText: { fontSize: 14 },
 
   // Done button
   doneBtn: {
