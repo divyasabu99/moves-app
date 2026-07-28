@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator, KeyboardAvoidingView,
+  TextInput, Platform, ActivityIndicator, KeyboardAvoidingView, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -151,7 +151,7 @@ const EMPTY_MAP_HTML = `<!DOCTYPE html>
 export default function AddPlaceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { addPlace } = usePlaces();
+  const { addPlace, places } = usePlaces();
 
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<Suggestion | null>(null);
@@ -231,6 +231,17 @@ export default function AddPlaceScreen() {
 
   const handleSave = () => {
     if (!canSave) return;
+    const trimmed = name.trim();
+    const duplicate = places.find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase());
+    if (duplicate) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        'Already in your list',
+        `"${duplicate.name}" is already saved. You can find it in your Places tab.`,
+        [{ text: 'Got it', style: 'default' }],
+      );
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addPlace({
       name: name.trim(),

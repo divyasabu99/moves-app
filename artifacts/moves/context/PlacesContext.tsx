@@ -145,12 +145,19 @@ export function PlacesProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, user, pushToServer]);
 
   const addPlace = useCallback((placeData: Omit<Place, 'id' | 'createdAt'>) => {
-    const newPlace: Place = {
-      ...placeData,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString(),
-    };
-    setPlaces(prev => { const next = [newPlace, ...prev]; persist(next); return next; });
+    const nameLower = placeData.name.trim().toLowerCase();
+    setPlaces(prev => {
+      // Silently block duplicates — screen should catch this first and show UI feedback
+      if (prev.some(p => p.name.trim().toLowerCase() === nameLower)) return prev;
+      const newPlace: Place = {
+        ...placeData,
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        createdAt: new Date().toISOString(),
+      };
+      const next = [newPlace, ...prev];
+      persist(next);
+      return next;
+    });
   }, [persist]);
 
   const addPlaces = useCallback((newPlaces: Place[]) => {
