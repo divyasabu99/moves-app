@@ -99,8 +99,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
               const data = await res.json();
               setUser({ userId: data.userId, displayName: data.displayName, email: email ?? '', token });
             } else {
-              await clearStorage();
-              return;
+              // Server rejected the token (e.g. expired) — restore from cache
+              // so the user stays signed in rather than being silently ejected.
+              // They will get an auth error the next time they make an API call
+              // and can sign out explicitly from settings if needed.
+              setUser({ userId, displayName: displayName ?? '', email: email ?? '', token });
             }
           } catch {
             // Offline — restore optimistically
