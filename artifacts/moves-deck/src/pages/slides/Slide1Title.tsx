@@ -31,12 +31,6 @@ export default function Slide1Title() {
         <h1 style={{ fontSize: '11vw', fontWeight: 800, margin: '0 0 2vh 0', lineHeight: 0.9, letterSpacing: '-0.04em' }}>MOVES</h1>
         {/* Subtitle */}
         <p style={{ fontSize: '2.2vw', fontWeight: 300, color: 'rgba(255,255,255,0.7)', margin: '0 0 6vh 0', lineHeight: 1.4, maxWidth: '48vw' }}>Your plan. Powered by <span style={{ textDecoration: 'line-through', color: 'rgba(255,255,255,0.35)' }}>AI</span> <span style={{ color: '#FFFFFF', fontWeight: 700 }}>YOU</span>.</p>
-        {/* Feature pills */}
-        <div style={{ display: 'flex', gap: '1.2vw' }}>
-          <div style={{ padding: '0.8vh 1.8vw', backgroundColor: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.22)', borderRadius: '0.4vw', fontSize: '1.05vw', fontWeight: 500 }}>NYC</div>
-          <div style={{ padding: '0.8vh 1.8vw', backgroundColor: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.22)', borderRadius: '0.4vw', fontSize: '1.05vw', fontWeight: 500 }}>Social Planning</div>
-          <div style={{ padding: '0.8vh 1.8vw', backgroundColor: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.22)', borderRadius: '0.4vw', fontSize: '1.05vw', fontWeight: 500 }}>AI-Powered</div>
-        </div>
       </div>
 
       {/* Footer */}
