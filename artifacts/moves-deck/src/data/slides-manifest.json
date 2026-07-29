@@ -1,82 +1,66 @@
 [
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c1",
-    "position": 1,
-    "filepath": "src/pages/slides/Slide1Title.tsx",
-    "title": "MOVES",
-    "description": "Title slide — investor preview cover",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c2",
-    "position": 2,
-    "filepath": "src/pages/slides/Slide2Problem.tsx",
-    "title": "The Problem",
-    "description": "Planning NYC nights is broken — four pain points",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c3",
-    "position": 3,
-    "filepath": "src/pages/slides/Slide3Solution.tsx",
-    "title": "The Solution",
-    "description": "MOVES — AI-curated itineraries from your personal spot library",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c4",
-    "position": 4,
-    "filepath": "src/pages/slides/Slide4Features.tsx",
-    "title": "Core Features",
-    "description": "Plan Tab, Places Tab, and Groups — three tabs, one perfect night",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c5",
-    "position": 5,
-    "filepath": "src/pages/slides/Slide5HowItWorks.tsx",
-    "title": "How It Works",
-    "description": "Three steps — Save, Plan, Go",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c6",
-    "position": 6,
-    "filepath": "src/pages/slides/Slide6Market.tsx",
-    "title": "Market Opportunity",
-    "description": "TAM $52B / SAM $8.4B / SOM $200M — urban social planning",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c7",
-    "position": 7,
-    "filepath": "src/pages/slides/Slide7GTM.tsx",
-    "title": "Go-to-Market",
-    "description": "NYC first — Phase 1 launch, Phase 2 multi-city expansion",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c8",
-    "position": 8,
-    "filepath": "src/pages/slides/Slide8Revenue.tsx",
-    "title": "Revenue Drivers",
-    "description": "MOVES Pro ($9.99/mo), Group Plans ($4.99/mo), Venue Partnerships (10% commission)",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c9",
-    "position": 9,
-    "filepath": "src/pages/slides/Slide9TechStack.tsx",
-    "title": "Tech Stack",
-    "description": "Expo, Node.js/Express, PostgreSQL, OpenAI, Google Places — built to scale",
-    "speakerNotes": ""
-  },
-  {
-    "id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3ca",
-    "position": 10,
-    "filepath": "src/pages/slides/Slide10TheAsk.tsx",
-    "title": "The Ask",
-    "description": "$1.5M seed — 60% engineering, 25% growth, 15% operations",
-    "speakerNotes": ""
-  }
+	{
+		"id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c1",
+		"position": 1,
+		"filepath": "src/pages/slides/Slide1Title.tsx",
+		"title": "MOVES",
+		"description": "Title slide — investor preview cover",
+		"speakerNotes": ""
+	},
+	{
+		"id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c2",
+		"position": 2,
+		"filepath": "src/pages/slides/Slide2Problem.tsx",
+		"title": "The Problem",
+		"description": "Planning NYC nights is broken — four pain points",
+		"speakerNotes": ""
+	},
+	{
+		"id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c3",
+		"position": 3,
+		"filepath": "src/pages/slides/Slide3Solution.tsx",
+		"title": "The Solution",
+		"description": "MOVES — AI-curated itineraries from your personal spot library",
+		"speakerNotes": ""
+	},
+	{
+		"id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c4",
+		"position": 4,
+		"filepath": "src/pages/slides/Slide4Features.tsx",
+		"title": "Core Features",
+		"description": "Plan Tab, Places Tab, and Groups — three tabs, one perfect night",
+		"speakerNotes": ""
+	},
+	{
+		"id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c5",
+		"position": 5,
+		"filepath": "src/pages/slides/Slide5HowItWorks.tsx",
+		"title": "How It Works",
+		"description": "Three steps — Save, Plan, Go",
+		"speakerNotes": ""
+	},
+	{
+		"id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c7",
+		"position": 6,
+		"filepath": "src/pages/slides/Slide7GTM.tsx",
+		"title": "Go-to-Market",
+		"description": "NYC first — Phase 1 launch, Phase 2 multi-city expansion",
+		"speakerNotes": ""
+	},
+	{
+		"id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c8",
+		"position": 7,
+		"filepath": "src/pages/slides/Slide8Revenue.tsx",
+		"title": "Revenue Drivers",
+		"description": "MOVES Pro ($9.99/mo), Group Plans ($4.99/mo), Venue Partnerships (10% commission)",
+		"speakerNotes": ""
+	},
+	{
+		"id": "7f3a1b2c-d4e5-4f6a-b7c8-d9e0f1a2b3c9",
+		"position": 8,
+		"filepath": "src/pages/slides/Slide9TechStack.tsx",
+		"title": "Tech Stack",
+		"description": "Expo, Node.js/Express, PostgreSQL, OpenAI, Google Places — built to scale",
+		"speakerNotes": ""
+	}
 ]

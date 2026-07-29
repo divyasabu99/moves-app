@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "JI1GojNBuyUXucySh2EUj"
+uri = "file://.local/outputs/MOVES-Deck.pdf"
+type = "pdf"
+title = "MOVES Deck.pdf"

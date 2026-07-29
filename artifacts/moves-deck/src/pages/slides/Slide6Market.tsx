@@ -21,62 +21,42 @@ export default function Slide6Market() {
         </div>
 
         {/* Stat cards */}
-        <div style={{ display: 'flex', gap: '2.5vw', width: '100%', marginBottom: '4vh' }}>
+        <div style={{ display: 'flex', gap: '2.5vw', width: '100%', marginBottom: '3vh' }}>
+          {/* TAM */}
           <div style={{ flex: 1, backgroundColor: '#131726', border: '1px solid rgba(79,127,255,0.22)', borderRadius: '1.2vw', padding: '3vh 2.5vw', textAlign: 'center', boxShadow: '0 2vh 4vh rgba(0,0,0,0.3)' }}>
             <div style={{ fontSize: '0.85vw', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.5vh' }}>Total Addressable Market</div>
             <div style={{ fontSize: '5.5vw', fontWeight: 800, color: '#4F7FFF', lineHeight: 1, marginBottom: '1vh' }}>$52B</div>
-            <div style={{ fontSize: '1.3vw', fontWeight: 400, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>US out-of-home dining<br />and nightlife spending</div>
+            <div style={{ fontSize: '1.15vw', fontWeight: 400, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4, marginBottom: '1.2vh' }}>US out-of-home dining<br />and nightlife spending</div>
+            <div style={{ fontSize: '0.85vw', color: 'rgba(255,255,255,0.28)', lineHeight: 1.4 }}>National Restaurant Association,<br />US Bureau of Labor Statistics</div>
           </div>
+
+          {/* SAM */}
           <div style={{ flex: 1, backgroundColor: '#131726', border: '1px solid rgba(124,107,240,0.28)', borderRadius: '1.2vw', padding: '3vh 2.5vw', textAlign: 'center', boxShadow: '0 2vh 5vh rgba(124,107,240,0.12)' }}>
             <div style={{ fontSize: '0.85vw', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.5vh' }}>Serviceable Addressable Market</div>
             <div style={{ fontSize: '5.5vw', fontWeight: 800, color: '#7C6BF0', lineHeight: 1, marginBottom: '1vh' }}>$8.4B</div>
-            <div style={{ fontSize: '1.3vw', fontWeight: 400, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>Digital social discovery<br />and planning apps</div>
+            <div style={{ fontSize: '1.15vw', fontWeight: 400, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4, marginBottom: '1.2vh' }}>US digital social discovery<br />and planning apps</div>
+            <div style={{ fontSize: '0.85vw', color: 'rgba(255,255,255,0.28)', lineHeight: 1.4 }}>Statista, App Annie,<br />internal market sizing</div>
           </div>
-          <div style={{ flex: 1, backgroundColor: '#131726', border: '1px solid rgba(39,201,63,0.2)', borderRadius: '1.2vw', padding: '3vh 2.5vw', textAlign: 'center', boxShadow: '0 2vh 4vh rgba(0,0,0,0.3)' }}>
+
+          {/* SOM — honestly labeled */}
+          <div style={{ flex: 1, backgroundColor: '#131726', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1.2vw', padding: '3vh 2.5vw', textAlign: 'center', boxShadow: '0 2vh 4vh rgba(0,0,0,0.3)' }}>
             <div style={{ fontSize: '0.85vw', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.5vh' }}>Serviceable Obtainable Market</div>
-            <div style={{ fontSize: '5.5vw', fontWeight: 800, color: '#27C93F', lineHeight: 1, marginBottom: '1vh' }}>$200M</div>
-            <div style={{ fontSize: '1.3vw', fontWeight: 400, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>NYC metro, Year 3<br />projection</div>
+            <div style={{ fontSize: '5.5vw', fontWeight: 800, color: 'rgba(255,255,255,0.75)', lineHeight: 1, marginBottom: '1vh' }}>TBD</div>
+            <div style={{ fontSize: '1.15vw', fontWeight: 400, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4, marginBottom: '1.2vh' }}>NYC metro, Year 3<br />revenue target</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4vw', padding: '0.4vh 0.8vw', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.4vw' }}>
+              <div style={{ width: '0.4vw', height: '0.4vw', borderRadius: '50%', backgroundColor: 'rgba(255,190,80,0.8)' }} />
+              <span style={{ fontSize: '0.82vw', color: 'rgba(255,190,80,0.8)', fontWeight: 500 }}>In progress — replacing with sourced data</span>
+            </div>
           </div>
         </div>
 
-        {/* Bar chart mock */}
-        <div style={{ width: '100%', height: '18vh', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1vw', padding: '1.5vw 2vw', display: 'flex', alignItems: 'flex-end', gap: '1.2vw' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1vh', flex: 1 }}>
-            <div style={{ width: '100%', height: '5vh', backgroundColor: 'rgba(79,127,255,0.25)', borderRadius: '0.3vw' }} />
-            <span style={{ fontSize: '1vw', color: 'rgba(255,255,255,0.3)' }}>Q1</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1vh', flex: 1 }}>
-            <div style={{ width: '100%', height: '7vh', backgroundColor: 'rgba(79,127,255,0.3)', borderRadius: '0.3vw' }} />
-            <span style={{ fontSize: '1vw', color: 'rgba(255,255,255,0.3)' }}>Q2</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1vh', flex: 1 }}>
-            <div style={{ width: '100%', height: '6vh', backgroundColor: 'rgba(79,127,255,0.3)', borderRadius: '0.3vw' }} />
-            <span style={{ fontSize: '1vw', color: 'rgba(255,255,255,0.3)' }}>Q3</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1vh', flex: 1 }}>
-            <div style={{ width: '100%', height: '9vh', backgroundColor: 'rgba(79,127,255,0.35)', borderRadius: '0.3vw' }} />
-            <span style={{ fontSize: '1vw', color: 'rgba(255,255,255,0.3)' }}>Q4</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1vh', flex: 1 }}>
-            <div style={{ width: '100%', height: '8vh', backgroundColor: 'rgba(124,107,240,0.3)', borderRadius: '0.3vw' }} />
-            <span style={{ fontSize: '1vw', color: 'rgba(255,255,255,0.3)' }}>Q5</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1vh', flex: 1 }}>
-            <div style={{ width: '100%', height: '11vh', backgroundColor: 'rgba(124,107,240,0.35)', borderRadius: '0.3vw' }} />
-            <span style={{ fontSize: '1vw', color: 'rgba(255,255,255,0.3)' }}>Q6</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1vh', flex: 1 }}>
-            <div style={{ width: '100%', height: '10vh', backgroundColor: 'rgba(124,107,240,0.4)', borderRadius: '0.3vw' }} />
-            <span style={{ fontSize: '1vw', color: 'rgba(255,255,255,0.3)' }}>Q7</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1vh', flex: 1 }}>
-            <div style={{ width: '100%', height: '13vh', backgroundColor: '#7C6BF0', borderRadius: '0.3vw', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '25%', background: 'linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 100%)', borderRadius: '0.3vw 0.3vw 0 0' }} />
-            </div>
-            <span style={{ fontSize: '1vw', color: 'rgba(255,255,255,0.3)' }}>Q8</span>
-          </div>
+        {/* Bottom note */}
+        <div style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0.8vw', padding: '1.5vh 2vw', display: 'flex', alignItems: 'center', gap: '1.5vw' }}>
+          <div style={{ width: '0.4vw', height: '0.4vw', borderRadius: '50%', backgroundColor: 'rgba(255,190,80,0.7)', flexShrink: 0 }} />
+          <p style={{ fontSize: '1.1vw', color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.5 }}>
+            TAM sourced from National Restaurant Association (2024) and US BLS consumer expenditure data. SAM derived from Statista app market reports. SOM to be replaced with a bottom-up model based on NYC user and venue partner targets — do not cite in investor materials until sourced.
+          </p>
         </div>
-        <div style={{ alignSelf: 'flex-start', fontSize: '1vw', color: 'rgba(255,255,255,0.28)', marginTop: '1vh' }}>Urban social app market growth projection — estimates only</div>
       </div>
 
       <div style={{ position: 'absolute', bottom: '4.5vh', left: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>MOVES INC.</div>
