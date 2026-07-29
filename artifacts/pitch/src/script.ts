@@ -54,7 +54,6 @@ I'm not building a reservation app. I'm not building a discovery app. I'm buildi
 
 [PAUSE]
 
-If you've ever cancelled plans because no one could decide where to go — you already understand why this has to exist.
-
+If you've ever cancelled plans because no one could decide where to go — you already understand why this has to exist.`;
 
 export default SCRIPT;
