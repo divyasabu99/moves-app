@@ -1,0 +1,78 @@
+0:00 — COLD OPEN
+
+[Look straight into the lens. No greeting yet. Say this flat and a little tired, like you're describing a Friday you actually had.]
+
+Six people. One group chat. Two hours of "idk, where do you guys want to go."
+
+And then nobody goes anywhere.
+
+[Beat. Then warm up.]
+
+That happened to me [last month / three weekends ago / insert real recent time]. It happens to me constantly. And at some point I stopped being annoyed by it and got curious about it — because I don't think that's a people problem. I think it's a product problem. Nobody has built the thing that fixes it.
+
+So I'm building it.
+
+0:35 — WHO I AM
+
+My name is [NAME], and I'm the founder of MOVES.
+
+[Two or three sentences, max. Pick the details that make you the obvious person for THIS problem, not your whole résumé. Templates:]
+
+[What you do / studied: "I'm an engineer — I've spent the last X years building Y."]
+[Your relationship to the city: "I've lived in New York for X years and I've been the default planner in every friend group I've ever had."]
+[One credibility line: shipped a product, ran a community, worked in hospitality, whatever is true.]
+
+The short version: I'm the person my friends text when they want a good night out. I've been doing this job manually for years. MOVES is me automating myself.
+
+1:20 — THE PROBLEM
+
+Here's what's actually broken.
+
+New York has more great places than any city on earth. That's not the problem — that's the problem. Infinite options, zero curation.
+
+And your taste already exists. It's just scattered. You've got restaurants saved in Google Maps, bars screenshotted from Instagram, a note on your phone from a friend's recommendation two years ago. Hundreds of places you already decided you wanted to go.
+
+None of it is connected to the moment you actually need it — Friday at 6pm, five people, everyone hungry, nobody deciding.
+
+[Slow down here. This is the thesis.]
+
+So the tools we have solve the wrong half. Discovery apps show you what's popular. Booking apps handle the transaction. Nothing turns what a group already loves into a plan for tonight.
+
+2:20 — THE PRODUCT
+
+MOVES does three things.
+
+You save your spots — from Maps, from search, tagged by dinner, drinks, late night.
+
+You set the vibe — party size, budget, neighborhood, start time. Or you just type what you're feeling.
+
+And MOVES hands you back a real, time-slotted night. 7pm dinner here, 9:30 drinks there, 11:30 if you want it. Routed so you're not crossing the city twice. Built from places you and your friends already chose.
+
+[Land this line clearly.]
+
+The tagline on my deck says "powered by AI." I crossed that out. It's powered by you. The intelligence is in the optimization — hours, travel time, availability, what overlaps across a group. That's a solvable engineering problem, and I'd rather solve it well than pretend a chatbot is magic.
+
+3:20 — WHY I'M COMMITTING TO THIS
+
+[Drop the pitch voice. This part should sound like you mean it, because you do.]
+
+I want to be honest about why this one and not something else.
+
+[Your real reason. One specific memory beats any abstraction. Examples of the SHAPE:]
+
+["The nights that changed my life were nights someone bothered to plan. I don't want those to depend on one person in the group being willing to do the work."]
+["I moved here not knowing anyone, and the way I built a life was by going out. Friction in that process isn't a minor inconvenience — it costs people their city."]
+
+Restaurants and bars are where friendships get made. Every hour lost in a group chat is an hour of somebody's life that didn't happen.
+
+I'm not trying to build another app people open and forget. I want MOVES to be the reason you actually went out. That's a problem worth a decade, and I'm not interested in handing it to somebody else.
+
+4:05 — THE ASK & CLOSE
+
+I'm raising $300,000 pre-seed for a twelve-month runway. New York only, on purpose — the hardest city first. That funds the venue partner platform, the first fifty venue partnerships, and getting this into the App Store.
+
+[Optional, 5 seconds, only if true — investors reward this: "One thing I'll flag honestly: Google doesn't expose saved lists through an API. I've mapped the import path around it, and I'm happy to walk you through it."]
+
+I'm [NAME]. This is MOVES.
+
+Let's get people out of the group chat.
