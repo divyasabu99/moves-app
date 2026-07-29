@@ -1,0 +1,27 @@
+kind = "slides"
+previewPath = "/moves-deck/"
+title = "MOVES Deck"
+version = "1.0.0"
+id = "artifacts/moves-deck"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/moves-deck/" ]
+localPort = 22240
+
+[services.development]
+run = "pnpm --filter @workspace/moves-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/moves-deck", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/moves-deck/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22240"
+BASE_PATH = "/moves-deck/"
