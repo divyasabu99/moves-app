@@ -30,7 +30,7 @@ export default function Slide1Title() {
         {/* Title */}
         <h1 style={{ fontSize: '11vw', fontWeight: 800, margin: '0 0 2vh 0', lineHeight: 0.9, letterSpacing: '-0.04em' }}>MOVES</h1>
         {/* Subtitle */}
-        <p style={{ fontSize: '2.2vw', fontWeight: 300, color: 'rgba(255,255,255,0.7)', margin: '0 0 6vh 0', lineHeight: 1.4, maxWidth: '42vw' }}>Plan your night. Powered by AI.</p>
+        <p style={{ fontSize: '2.2vw', fontWeight: 300, color: 'rgba(255,255,255,0.7)', margin: '0 0 6vh 0', lineHeight: 1.4, maxWidth: '42vw' }}>Plan your day or night. Powered by AI —<br />but really, powered by <span style={{ color: '#FFFFFF', fontWeight: 500 }}>your saves</span>.</p>
         {/* Feature pills */}
         <div style={{ display: 'flex', gap: '1.2vw' }}>
           <div style={{ padding: '0.8vh 1.8vw', backgroundColor: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.22)', borderRadius: '0.4vw', fontSize: '1.05vw', fontWeight: 500 }}>NYC</div>
