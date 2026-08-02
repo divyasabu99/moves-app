@@ -109,13 +109,32 @@ const VIBES = [
 
 type VibeId = typeof VIBES[number]['id'];
 
-const DATES = ['Tonight', 'Tomorrow', 'Sat', 'Sun'];
 const BUDGETS = ['$', '$$', '$$$'];
 const NEIGHBORHOODS = ['West Village', 'Williamsburg', 'SoHo', 'LES', 'Greenpoint', 'Astoria'];
 
+const TIME_SLOTS = [
+  '12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM',
+  '6:00 PM','7:00 PM','8:00 PM','9:00 PM','10:00 PM','11:00 PM',
+  '12:00 AM','1:00 AM','2:00 AM',
+];
+
+function buildCalendar(year: number, month: number) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = Array(firstDay).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
 export default function MoodBoard() {
   const [chosen, setChosen] = useState<VibeId | null>(null);
-  const [date, setDate] = useState('Tonight');
+  const today = new Date();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [calDay, setCalDay] = useState<number | null>(today.getDate());
+  const [startTime, setStartTime] = useState('7:00 PM');
+  const [endTime, setEndTime] = useState('10:00 PM');
   const [people, setPeople] = useState(2);
   const [budget, setBudget] = useState('$$');
   const [hood, setHood] = useState('');
@@ -317,21 +336,92 @@ export default function MoodBoard() {
         flexShrink: 0,
         padding: '0 20px',
         overflow: 'hidden',
-        maxHeight: chosen ? 400 : 0,
+        maxHeight: chosen ? 800 : 0,
         opacity: chosen ? 1 : 0,
         transition: 'max-height 0.35s ease, opacity 0.3s ease',
       }}>
         {/* Divider */}
         <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${PRIMARY}33, transparent)`, margin: '12px 0 16px' }} />
 
-        {/* WHEN */}
-        <LogRow label="WHEN">
-          <div style={{ display: 'flex', gap: 6 }}>
-            {DATES.map(d => (
-              <Chip key={d} active={date === d} onClick={() => setDate(d)} accent={PRIMARY} accentFg={PRIMARY_FG}>
-                {d}
-              </Chip>
-            ))}
+        {/* DATE — mini calendar */}
+        <LogRow label="DATE">
+          <div style={{ background: '#1C1810', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+            {/* Month nav */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px 6px' }}>
+              <button onClick={() => {
+                if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); }
+                else setCalMonth(m => m - 1);
+              }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 16, padding: '0 4px' }}>‹</button>
+              <span style={{ fontSize: 12, fontWeight: 600, color: FG, letterSpacing: '0.05em' }}>
+                {new Date(calYear, calMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </span>
+              <button onClick={() => {
+                if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); }
+                else setCalMonth(m => m + 1);
+              }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 16, padding: '0 4px' }}>›</button>
+            </div>
+            {/* Day-of-week header */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 6px' }}>
+              {['S','M','T','W','T','F','S'].map((d, i) => (
+                <div key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 600, color: MUTED, padding: '2px 0 4px', letterSpacing: '0.05em' }}>{d}</div>
+              ))}
+            </div>
+            {/* Day cells */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 6px 8px', gap: '2px 0' }}>
+              {buildCalendar(calYear, calMonth).map((day, i) => {
+                if (!day) return <div key={i} />;
+                const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+                const isSelected = day === calDay && calMonth === calMonth && calYear === calYear;
+                const isPast = new Date(calYear, calMonth, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                return (
+                  <button key={i} onClick={() => !isPast && setCalDay(day)} style={{
+                    height: 28, borderRadius: 7, border: 'none',
+                    background: isSelected ? PRIMARY : isToday ? PRIMARY + '22' : 'transparent',
+                    color: isSelected ? PRIMARY_FG : isPast ? BORDER : isToday ? PRIMARY : FG,
+                    fontSize: 11, fontWeight: isSelected || isToday ? 700 : 400,
+                    cursor: isPast ? 'default' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{day}</button>
+                );
+              })}
+            </div>
+          </div>
+        </LogRow>
+
+        {/* START & END time */}
+        <LogRow label="TIME">
+          <div style={{ display: 'flex', gap: 8 }}>
+            {/* Start */}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: MUTED, letterSpacing: '0.1em', marginBottom: 4 }}>START</div>
+              <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
+                {TIME_SLOTS.slice(0, 9).map(t => (
+                  <button key={t} onClick={() => setStartTime(t)} style={{
+                    padding: '5px 9px', borderRadius: 8, flexShrink: 0,
+                    border: `1px solid ${startTime === t ? PRIMARY : BORDER}`,
+                    background: startTime === t ? PRIMARY + '22' : '#1C1810',
+                    color: startTime === t ? PRIMARY : FG,
+                    fontSize: 10, fontWeight: startTime === t ? 600 : 400, cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}>{t}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: MUTED, letterSpacing: '0.1em', marginBottom: 4 }}>END</div>
+            <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
+              {TIME_SLOTS.slice(3).map(t => (
+                <button key={t} onClick={() => setEndTime(t)} style={{
+                  padding: '5px 9px', borderRadius: 8, flexShrink: 0,
+                  border: `1px solid ${endTime === t ? ACCENT : BORDER}`,
+                  background: endTime === t ? ACCENT + '22' : '#1C1810',
+                  color: endTime === t ? ACCENT : FG,
+                  fontSize: 10, fontWeight: endTime === t ? 600 : 400, cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}>{t}</button>
+              ))}
+            </div>
           </div>
         </LogRow>
 
