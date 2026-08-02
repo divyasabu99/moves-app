@@ -73,6 +73,38 @@ const VIBES = [
     grad: 'linear-gradient(145deg, #141414 0%, #252525 50%, #101010 100%)',
     glow: '#8A8A8A',
   },
+  {
+    id: 'sports',
+    label: 'Sports Day',
+    sub: 'Watch party or live game',
+    icon: '⚡',
+    grad: 'linear-gradient(145deg, #0F1A0A 0%, #1A3010 50%, #0A1A18 100%)',
+    glow: '#4CAF50',
+  },
+  {
+    id: 'self-care',
+    label: 'Self Care Day',
+    sub: 'Spa, wellness, reset',
+    icon: '◌',
+    grad: 'linear-gradient(145deg, #1A0F18 0%, #2E1A30 50%, #140F1C 100%)',
+    glow: '#E091C0',
+  },
+  {
+    id: 'park',
+    label: 'Park Day',
+    sub: 'Outdoors, picnic, fresh air',
+    icon: '✿',
+    grad: 'linear-gradient(145deg, #0A160A 0%, #152A12 50%, #081008 100%)',
+    glow: '#7BC67A',
+  },
+  {
+    id: 'dog-day',
+    label: 'Dog Day',
+    sub: 'Dog-friendly spots & parks',
+    icon: '◎',
+    grad: 'linear-gradient(145deg, #1A1408 0%, #332A10 50%, #141008 100%)',
+    glow: '#D4A853',
+  },
 ] as const;
 
 type VibeId = typeof VIBES[number]['id'];
@@ -133,7 +165,7 @@ export default function MoodBoard() {
         <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
           {chosen
             ? <>Tonight's move:<br /><span style={{ color: PRIMARY }}>{chosenVibe?.label}</span></>
-            : <>What kind of<br />night?</>
+            : <>What kind of<br />vibe?</>
           }
         </div>
         {!chosen && (
