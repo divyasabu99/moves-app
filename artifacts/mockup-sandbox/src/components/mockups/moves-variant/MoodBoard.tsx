@@ -130,6 +130,7 @@ function buildCalendar(year: number, month: number) {
 export default function MoodBoard() {
   const [chosen, setChosen] = useState<VibeId | null>(null);
   const today = new Date();
+  const [calOpen, setCalOpen] = useState(false);
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
   const [calDay, setCalDay] = useState<number | null>(today.getDate());
@@ -343,85 +344,110 @@ export default function MoodBoard() {
         {/* Divider */}
         <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${PRIMARY}33, transparent)`, margin: '12px 0 16px' }} />
 
-        {/* DATE — mini calendar */}
+        {/* DATE — trigger button + popup calendar */}
         <LogRow label="DATE">
-          <div style={{ background: '#1C1810', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
-            {/* Month nav */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px 6px' }}>
-              <button onClick={() => {
-                if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); }
-                else setCalMonth(m => m - 1);
-              }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 16, padding: '0 4px' }}>‹</button>
-              <span style={{ fontSize: 12, fontWeight: 600, color: FG, letterSpacing: '0.05em' }}>
-                {new Date(calYear, calMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </span>
-              <button onClick={() => {
-                if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); }
-                else setCalMonth(m => m + 1);
-              }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 16, padding: '0 4px' }}>›</button>
-            </div>
-            {/* Day-of-week header */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 6px' }}>
-              {['S','M','T','W','T','F','S'].map((d, i) => (
-                <div key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 600, color: MUTED, padding: '2px 0 4px', letterSpacing: '0.05em' }}>{d}</div>
-              ))}
-            </div>
-            {/* Day cells */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 6px 8px', gap: '2px 0' }}>
-              {buildCalendar(calYear, calMonth).map((day, i) => {
-                if (!day) return <div key={i} />;
-                const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
-                const isSelected = day === calDay && calMonth === calMonth && calYear === calYear;
-                const isPast = new Date(calYear, calMonth, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                return (
-                  <button key={i} onClick={() => !isPast && setCalDay(day)} style={{
-                    height: 28, borderRadius: 7, border: 'none',
-                    background: isSelected ? PRIMARY : isToday ? PRIMARY + '22' : 'transparent',
-                    color: isSelected ? PRIMARY_FG : isPast ? BORDER : isToday ? PRIMARY : FG,
-                    fontSize: 11, fontWeight: isSelected || isToday ? 700 : 400,
-                    cursor: isPast ? 'default' : 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>{day}</button>
-                );
-              })}
-            </div>
+          <div style={{ position: 'relative' }}>
+            {/* Trigger */}
+            <button onClick={() => setCalOpen(o => !o)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#1C1810', border: `1px solid ${calOpen ? PRIMARY + '88' : BORDER}`,
+              borderRadius: 10, padding: '10px 14px', cursor: 'pointer',
+              transition: 'border-color 0.15s',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <rect x="1" y="2" width="14" height="13" rx="2" stroke={calOpen ? PRIMARY : MUTED} strokeWidth="1.5"/>
+                  <path d="M1 6h14" stroke={calOpen ? PRIMARY : MUTED} strokeWidth="1.5"/>
+                  <path d="M5 1v2M11 1v2" stroke={calOpen ? PRIMARY : MUTED} strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <span style={{ fontSize: 13, color: calDay ? FG : MUTED, fontWeight: calDay ? 500 : 400 }}>
+                  {calDay
+                    ? new Date(calYear, calMonth, calDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                    : 'Pick a date'}
+                </span>
+              </div>
+              <span style={{ color: MUTED, fontSize: 10 }}>{calOpen ? '▲' : '▼'}</span>
+            </button>
+
+            {/* Popup calendar */}
+            {calOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 10,
+                background: '#231D15', border: `1px solid ${PRIMARY}55`,
+                borderRadius: 12, overflow: 'hidden',
+                boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${PRIMARY}22`,
+              }}>
+                {/* Month nav */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px 6px' }}>
+                  <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 18, padding: '0 4px', lineHeight: 1 }}>‹</button>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: FG, letterSpacing: '0.06em' }}>
+                    {new Date(calYear, calMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 18, padding: '0 4px', lineHeight: 1 }}>›</button>
+                </div>
+                {/* Day-of-week header */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 8px' }}>
+                  {['Su','Mo','Tu','We','Th','Fr','Sa'].map((d, i) => (
+                    <div key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 600, color: MUTED, paddingBottom: 4, letterSpacing: '0.04em' }}>{d}</div>
+                  ))}
+                </div>
+                {/* Day cells */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 8px 10px', gap: '2px 0' }}>
+                  {buildCalendar(calYear, calMonth).map((day, i) => {
+                    if (!day) return <div key={i} />;
+                    const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+                    const isSelected = day === calDay;
+                    const isPast = new Date(calYear, calMonth, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                    return (
+                      <button key={i} onClick={() => { if (!isPast) { setCalDay(day); setCalOpen(false); } }} style={{
+                        height: 30, borderRadius: 8, border: 'none',
+                        background: isSelected ? PRIMARY : isToday ? PRIMARY + '28' : 'transparent',
+                        color: isSelected ? PRIMARY_FG : isPast ? BORDER : isToday ? PRIMARY : FG,
+                        fontSize: 12, fontWeight: isSelected || isToday ? 700 : 400,
+                        cursor: isPast ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>{day}</button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </LogRow>
 
-        {/* START & END time */}
+        {/* TIME — start + end dropdowns */}
         <LogRow label="TIME">
           <div style={{ display: 'flex', gap: 8 }}>
-            {/* Start */}
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 9, fontWeight: 600, color: MUTED, letterSpacing: '0.1em', marginBottom: 4 }}>START</div>
-              <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
-                {TIME_SLOTS.slice(0, 9).map(t => (
-                  <button key={t} onClick={() => setStartTime(t)} style={{
-                    padding: '5px 9px', borderRadius: 8, flexShrink: 0,
-                    border: `1px solid ${startTime === t ? PRIMARY : BORDER}`,
-                    background: startTime === t ? PRIMARY + '22' : '#1C1810',
-                    color: startTime === t ? PRIMARY : FG,
-                    fontSize: 10, fontWeight: startTime === t ? 600 : 400, cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}>{t}</button>
-                ))}
+            {[
+              { label: 'Start', value: startTime, set: setStartTime, accent: PRIMARY },
+              { label: 'End',   value: endTime,   set: setEndTime,   accent: ACCENT  },
+            ].map(({ label, value, set, accent }) => (
+              <div key={label} style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={value}
+                    onChange={e => set(e.target.value)}
+                    style={{
+                      width: '100%', appearance: 'none', WebkitAppearance: 'none',
+                      background: '#1C1810', border: `1px solid ${BORDER}`,
+                      borderRadius: 10, padding: '9px 32px 9px 12px',
+                      color: FG, fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    {TIME_SLOTS.map(t => <option key={t} value={t} style={{ background: '#1C1810' }}>{t}</option>)}
+                  </select>
+                  {/* Custom chevron */}
+                  <svg style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+                    width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M2 3.5L5 6.5L8 3.5" stroke={accent} strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
               </div>
-            </div>
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 9, fontWeight: 600, color: MUTED, letterSpacing: '0.1em', marginBottom: 4 }}>END</div>
-            <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
-              {TIME_SLOTS.slice(3).map(t => (
-                <button key={t} onClick={() => setEndTime(t)} style={{
-                  padding: '5px 9px', borderRadius: 8, flexShrink: 0,
-                  border: `1px solid ${endTime === t ? ACCENT : BORDER}`,
-                  background: endTime === t ? ACCENT + '22' : '#1C1810',
-                  color: endTime === t ? ACCENT : FG,
-                  fontSize: 10, fontWeight: endTime === t ? 600 : 400, cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}>{t}</button>
-              ))}
-            </div>
+            ))}
           </div>
         </LogRow>
 
