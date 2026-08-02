@@ -157,64 +157,101 @@ export default function MoodBoard() {
         <div style={{ flex: 1, textAlign: 'center' }}>
           <span style={{ color: PRIMARY, fontSize: 16, fontWeight: 300, letterSpacing: '0.35em' }}>MOVES</span>
         </div>
-        <div style={{ width: 34 }} />
+
+        {/* Chat — always visible */}
+        <button style={{
+          width: 34, height: 34, borderRadius: 17, flexShrink: 0,
+          background: '#26201A', border: `1px solid ${BORDER}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+        }}>
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+            <path d="M10 2C5.58 2 2 5.13 2 9c0 1.9.8 3.63 2.1 4.9L3 17l3.4-1.1C7.5 16.6 8.72 17 10 17c4.42 0 8-3.13 8-7s-3.58-7-8-7z"
+              stroke={MUTED} strokeWidth="1.5" strokeLinejoin="round" fill="none"/>
+            <circle cx="7" cy="9" r="0.9" fill={MUTED}/>
+            <circle cx="10" cy="9" r="0.9" fill={MUTED}/>
+            <circle cx="13" cy="9" r="0.9" fill={MUTED}/>
+          </svg>
+        </button>
       </div>
 
-      {/* ── Big question ── */}
+      {/* ── Big question / chosen summary ── */}
       <div style={{ padding: '20px 20px 14px', flexShrink: 0 }}>
-        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-          {chosen
-            ? <>Tonight's move:<br /><span style={{ color: PRIMARY }}>{chosenVibe?.label}</span></>
-            : <>What kind of<br />vibe?</>
-          }
-        </div>
-        {!chosen && (
-          <div style={{ fontSize: 12, color: MUTED, marginTop: 6, letterSpacing: '0.02em' }}>
-            Tap a vibe to start planning
+        {!chosen ? (
+          <>
+            <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+              What kind of<br />vibe?
+            </div>
+            <div style={{ fontSize: 12, color: MUTED, marginTop: 6, letterSpacing: '0.02em' }}>
+              Tap a vibe to start planning
+            </div>
+          </>
+        ) : (
+          /* Single chosen-vibe row — grid is completely hidden */
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: chosenVibe?.grad,
+            border: `1.5px solid ${chosenVibe?.glow}`,
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: `0 0 24px ${chosenVibe?.glow}44`,
+            position: 'relative', overflow: 'hidden',
+          }}>
+            {/* Glow orb */}
+            <div style={{
+              position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+              width: 60, height: 60,
+              background: `radial-gradient(circle, ${chosenVibe?.glow}44 0%, transparent 70%)`,
+              borderRadius: '50%', pointerEvents: 'none',
+            }} />
+            {/* Icon */}
+            <div style={{ fontSize: 26, lineHeight: 1, filter: `drop-shadow(0 0 8px ${chosenVibe?.glow})`, flexShrink: 0 }}>
+              {chosenVibe?.icon}
+            </div>
+            {/* Text */}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: chosenVibe?.glow }}>{chosenVibe?.label}</div>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{chosenVibe?.sub}</div>
+            </div>
+            {/* Change button */}
+            <button onClick={() => setChosen(null)} style={{
+              flexShrink: 0, background: 'rgba(0,0,0,0.35)',
+              border: `1px solid ${BORDER}`, borderRadius: 20,
+              padding: '5px 11px', cursor: 'pointer',
+              fontSize: 11, fontWeight: 500, color: MUTED,
+              zIndex: 1,
+            }}>
+              Change
+            </button>
           </div>
         )}
-        {chosen && (
-          <button onClick={() => setChosen(null)} style={{
-            marginTop: 6, background: 'none', border: 'none', cursor: 'pointer',
-            color: MUTED, fontSize: 12, padding: 0, textDecoration: 'underline',
-            textUnderlineOffset: 3,
-          }}>
-            Change vibe
-          </button>
-        )}
       </div>
 
-      {/* ── Vibe grid (2-col, scrollable within its zone) ── */}
-      <div style={{
-        flex: chosen ? '0 0 auto' : '1 1 auto',
-        overflowY: chosen ? 'hidden' : 'auto',
+      {/* ── Vibe grid — only shown before a choice is made ── */}
+      {!chosen && <div style={{
+        flex: '1 1 auto',
+        overflowY: 'auto',
         padding: '0 20px',
-        transition: 'flex 0.3s ease',
       }}>
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 10,
-          paddingBottom: chosen ? 0 : 16,
+          paddingBottom: 16,
         }}>
-          {VIBES.map(v => {
-            const active = chosen === v.id;
-            const dimmed = chosen !== null && !active;
-            return (
+          {VIBES.map(v => (
               <button
                 key={v.id}
                 onClick={() => setChosen(v.id)}
                 style={{
                   position: 'relative',
-                  height: chosen ? 64 : 118,
+                  height: 118,
                   borderRadius: 14,
-                  border: `1.5px solid ${active ? v.glow : BORDER}`,
+                  border: `1.5px solid ${BORDER}`,
                   background: v.grad,
                   cursor: 'pointer',
                   overflow: 'hidden',
-                  opacity: dimmed ? 0.4 : 1,
-                  transition: 'all 0.25s ease',
-                  boxShadow: active ? `0 0 20px ${v.glow}55, inset 0 0 0 1px ${v.glow}44` : 'none',
+                  transition: 'all 0.2s ease',
                   padding: 0,
                   display: 'flex',
                   flexDirection: 'column',
@@ -233,40 +270,33 @@ export default function MoodBoard() {
                 }} />
 
                 {/* Icon */}
-                {!chosen && (
-                  <div style={{
-                    position: 'absolute', top: 14, left: 14,
-                    fontSize: 22, lineHeight: 1,
-                    filter: `drop-shadow(0 0 8px ${v.glow})`,
-                  }}>
-                    {v.icon}
-                  </div>
-                )}
+                <div style={{
+                  position: 'absolute', top: 14, left: 14,
+                  fontSize: 22, lineHeight: 1,
+                  filter: `drop-shadow(0 0 8px ${v.glow})`,
+                }}>
+                  {v.icon}
+                </div>
 
                 {/* Label area */}
                 <div style={{
-                  padding: chosen ? '0 12px' : '0 12px 12px',
+                  padding: '0 12px 12px',
                   width: '100%',
-                  height: chosen ? '100%' : 'auto',
-                  display: 'flex', flexDirection: 'column', justifyContent: chosen ? 'center' : 'flex-end',
                 }}>
                   <div style={{
-                    fontSize: chosen ? 12 : 13,
+                    fontSize: 13,
                     fontWeight: 700,
-                    color: active ? v.glow : FG,
+                    color: FG,
                     lineHeight: 1.2,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                   }}>
-                    {active && <span style={{ marginRight: 5 }}>✓</span>}
                     {v.label}
                   </div>
-                  {!chosen && (
-                    <div style={{ fontSize: 10, color: MUTED, marginTop: 2, fontWeight: 400 }}>
-                      {v.sub}
-                    </div>
-                  )}
+                  <div style={{ fontSize: 10, color: MUTED, marginTop: 2, fontWeight: 400 }}>
+                    {v.sub}
+                  </div>
                 </div>
 
                 {/* Noise texture overlay */}
@@ -278,10 +308,9 @@ export default function MoodBoard() {
                   opacity: 0.5,
                 }} />
               </button>
-            );
-          })}
+          ))}
         </div>
-      </div>
+      </div>}
 
       {/* ── Logistics panel — slides up after choosing ── */}
       <div style={{
