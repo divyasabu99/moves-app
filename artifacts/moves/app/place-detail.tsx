@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  ActivityIndicator, Alert, TextInput, KeyboardAvoidingView,
+  ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -81,10 +81,11 @@ export default function PlaceDetailScreen() {
   const [localAddress, setLocalAddress] = useState<string | undefined>(undefined);
   const [localCuisine, setLocalCuisine] = useState<string | undefined>(undefined);
   const [localTags, setLocalTags] = useState<string[] | undefined>(undefined);
+  const [localWebsite, setLocalWebsite] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!place || loading) return;
-    const needsEnrich = !place.vibeDescription || !place.address || !place.cuisine || !place.tags?.length;
+    const needsEnrich = !place.vibeDescription || !place.address || !place.cuisine || !place.tags?.length || !place.website;
     if (!needsEnrich) return;
     setEnriching(true);
     fetch(`${BASE_URL()}/lookup-place`, {
@@ -99,6 +100,7 @@ export default function PlaceDetailScreen() {
         if (!place.address && data.address) { patch.address = data.address; setLocalAddress(data.address); }
         if (!place.cuisine && data.cuisine) { patch.cuisine = data.cuisine; setLocalCuisine(data.cuisine); }
         if ((!place.tags || !place.tags.length) && data.tags?.length) { patch.tags = data.tags; setLocalTags(data.tags); }
+        if (!place.website && data.website) { patch.website = data.website; setLocalWebsite(data.website); }
         if (Object.keys(patch).length > 0) updatePlace(place.id, patch);
       })
       .catch(() => {})
@@ -115,6 +117,7 @@ export default function PlaceDetailScreen() {
   const [draftNotes, setDraftNotes] = useState('');
   const [draftCuisine, setDraftCuisine] = useState('');
   const [draftTags, setDraftTags] = useState(''); // comma-separated
+  const [draftWebsite, setDraftWebsite] = useState('');
 
   const FOOD_CATEGORIES: PlaceCategory[] = ['restaurant', 'bar', 'cafe'];
 
@@ -128,6 +131,7 @@ export default function PlaceDetailScreen() {
     setDraftNotes(place.notes ?? '');
     setDraftCuisine(place.cuisine ?? '');
     setDraftTags((place.tags ?? []).join(', '));
+    setDraftWebsite(place.website ?? '');
     setEditing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [place]);
@@ -151,6 +155,7 @@ export default function PlaceDetailScreen() {
       notes: draftNotes.trim() || undefined,
       cuisine: draftCuisine.trim() || undefined,
       tags: parsedTags.length > 0 ? parsedTags : undefined,
+      website: draftWebsite.trim() || undefined,
     };
     if (draftRating !== undefined && draftRating > 0) {
       patch.rating = draftRating;
@@ -180,6 +185,7 @@ export default function PlaceDetailScreen() {
   const address = place?.address ?? localAddress;
   const cuisine = place?.cuisine ?? localCuisine;
   const tags = place?.tags ?? localTags;
+  const website = place?.website ?? localWebsite;
   const iconName = place ? (CATEGORY_ICONS[place.category] ?? 'location') : 'location';
   const FOOD_CATS: PlaceCategory[] = ['restaurant', 'bar', 'cafe'];
 
@@ -362,6 +368,21 @@ export default function PlaceDetailScreen() {
             </View>
           </EditSection>
 
+          {/* Website */}
+          <EditSection label="WEBSITE" colors={colors}>
+            <TextInput
+              value={draftWebsite}
+              onChangeText={setDraftWebsite}
+              style={[styles.editInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, fontFamily: 'Inter_400Regular' }]}
+              placeholderTextColor={colors.mutedForeground}
+              placeholder="https://..."
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              returnKeyType="done"
+            />
+          </EditSection>
+
           {/* Notes */}
           <EditSection label="NOTES" colors={colors}>
             <TextInput
@@ -507,6 +528,12 @@ export default function PlaceDetailScreen() {
           ) : (
             <Row icon="map-outline" label="Address" value="Not available" colors={colors} muted />
           )}
+          {website ? (
+            <>
+              <Divider colors={colors} />
+              <LinkRow icon="globe-outline" label="Website" value={website} colors={colors} />
+            </>
+          ) : null}
           <Divider colors={colors} />
           <Row icon="bookmark-outline" label="Added from" value={SOURCE_LABELS[place.source] ?? 'Manually added'} colors={colors} />
         </View>
@@ -567,6 +594,29 @@ function Row({ icon, label, value, colors, muted }: { icon: string; label: strin
         </Text>
       </View>
     </View>
+  );
+}
+
+function LinkRow({ icon, label, value, colors }: { icon: string; label: string; value: string; colors: any }) {
+  const display = value.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  const handlePress = () => {
+    const url = value.startsWith('http') ? value : `https://${value}`;
+    Linking.openURL(url).catch(() => {});
+    Haptics.selectionAsync();
+  };
+  return (
+    <TouchableOpacity style={styles.row} onPress={handlePress} activeOpacity={0.7}>
+      <View style={[styles.rowIcon, { backgroundColor: colors.muted }]}>
+        <Ionicons name={icon as any} size={15} color={colors.primary} />
+      </View>
+      <View style={styles.rowText}>
+        <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>{label}</Text>
+        <Text style={[styles.rowValue, { color: colors.primary, fontFamily: 'Inter_400Regular' }]} numberOfLines={1}>
+          {display}
+        </Text>
+      </View>
+      <Ionicons name="open-outline" size={14} color={colors.mutedForeground} />
+    </TouchableOpacity>
   );
 }
 

@@ -43,7 +43,8 @@ Respond ONLY with valid JSON matching this shape exactly:
   "vibes": ["<vibe1>", "<vibe2>", "<vibe3>"],
   "vibeDescription": "<single punchy sentence capturing the feel>",
   "cuisine": "<primary cuisine or drink style, e.g. Italian, Japanese, Cocktails, Wine Bar — restaurants/bars/cafes only, empty string otherwise>",
-  "tags": ["<tag1>", "<tag2>", "<tag3>"]
+  "tags": ["<tag1>", "<tag2>", "<tag3>"],
+  "website": "<official website URL, e.g. https://example.com, or empty string if unknown>"
 }
 
 Rules:
@@ -82,6 +83,7 @@ Rules:
       vibeDescription: parsed.vibeDescription ?? "",
       cuisine: typeof parsed.cuisine === "string" ? parsed.cuisine : "",
       tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8) : [],
+      website: typeof parsed.website === "string" ? parsed.website : "",
     });
   } catch (err: any) {
     res.status(502).json({ error: err?.message ?? "Lookup failed" });

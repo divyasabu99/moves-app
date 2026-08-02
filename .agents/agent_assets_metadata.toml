@@ -6,3 +6,10 @@ id = "JI1GojNBuyUXucySh2EUj"
 uri = "file://.local/outputs/MOVES-Deck.pdf"
 type = "pdf"
 title = "MOVES Deck.pdf"
+
+[[outputs]]
+id = "LyR5z2ypHWjSAkvBAI97D"
+uri = "file://attached_assets/moves-logo.png"
+type = "image"
+title = "MOVES Logo"
+description = "Inter 300 · amber gold #D4A853 · dark background with warm radial glow · 1024×1024 PNG"
