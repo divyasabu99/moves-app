@@ -341,17 +341,20 @@ export default function MoodBoard() {
         </div>
       </div>}
 
-      {/* ── Logistics panel — slides up after choosing ── */}
+      {/* ── Logistics panel — fills remaining space after choosing ── */}
       <div style={{
-        flexShrink: 0,
+        flex: chosen ? '1 1 0' : '0 0 0',
         padding: '0 20px',
         overflow: 'hidden',
-        maxHeight: chosen ? 800 : 0,
         opacity: chosen ? 1 : 0,
-        transition: 'max-height 0.35s ease, opacity 0.3s ease',
+        transition: 'opacity 0.3s ease',
+        display: 'flex',
+        flexDirection: 'column',
       }}>
         {/* Divider */}
-        <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${PRIMARY}33, transparent)`, margin: '12px 0 16px' }} />
+        <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${PRIMARY}33, transparent)`, margin: '8px 0 0', flexShrink: 0 }} />
+        {/* Rows wrapper — distributes rows evenly across available height */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', paddingBottom: 8 }}>
 
         {/* DATE — trigger button + popup calendar */}
         <LogRow label="DATE">
@@ -577,7 +580,8 @@ export default function MoodBoard() {
             </div>
           </div>
         </LogRow>
-      </div>
+        </div>{/* end rows wrapper */}
+      </div>{/* end logistics panel */}
 
       {/* ── CTA ── */}
       <div style={{
