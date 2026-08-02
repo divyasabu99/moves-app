@@ -70,12 +70,17 @@ export function computeTransit(from: Place, to: Place): Transit {
 export const VIBES = [
   'Dinner & Drinks',
   'Date Night',
-  'Museum Day',
-  'Brunch Run',
   'Night Out',
+  'Brunch Run',
   'Foodie Crawl',
-  'Cultural Day',
   'Low-Key Vibes',
+  'Sports Day',
+  'Self Care Day',
+  'Park Day',
+  'Dog Day',
+  // Legacy — kept for existing itineraries
+  'Museum Day',
+  'Cultural Day',
 ] as const;
 
 export type Vibe = (typeof VIBES)[number];
@@ -120,6 +125,26 @@ export const VIBE_SEQUENCES: Record<string, PlaceCategory[][]> = {
     ['cafe', 'park'],
     ['activity', 'cafe'],
     ['cafe', 'activity', 'park'],
+  ],
+  'Sports Day': [
+    ['bar', 'restaurant'],
+    ['activity', 'bar'],
+    ['restaurant', 'bar', 'bar'],
+  ],
+  'Self Care Day': [
+    ['activity', 'cafe'],
+    ['activity', 'park'],
+    ['cafe', 'activity'],
+  ],
+  'Park Day': [
+    ['park', 'cafe'],
+    ['park', 'activity'],
+    ['cafe', 'park', 'cafe'],
+  ],
+  'Dog Day': [
+    ['park', 'cafe'],
+    ['activity', 'park'],
+    ['park', 'restaurant'],
   ],
 };
 

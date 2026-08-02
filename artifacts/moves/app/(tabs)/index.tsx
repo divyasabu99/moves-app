@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
-import { VibeSelector } from '@/components/VibeSelector';
+import { VibeGrid, VibeCard } from '@/components/VibeGrid';
 import { DropdownPicker, DropdownOption } from '@/components/DropdownPicker';
 import { BudgetLevel, PlanInput, Group } from '@/types';
 import { NEIGHBORHOODS, parseTimeToMinutes } from '@/lib/itinerary';
@@ -77,7 +77,7 @@ export default function PlanScreen() {
   const [mode, setMode] = useState<Mode>('form');
 
   // Form state
-  const [vibe, setVibe] = useState('Dinner & Drinks');
+  const [vibe, setVibe] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(DATE_OPTIONS[0].value);
   const [startTime, setStartTime] = useState('7:00 PM');
   const [endTime, setEndTime] = useState('10:00 PM');
@@ -176,7 +176,7 @@ export default function PlanScreen() {
   };
 
   const buildPlan = (): PlanInput => ({
-    vibe, date: selectedDate, startTime, endTime,
+    vibe: vibe ?? '', date: selectedDate, startTime, endTime,
     partySize, budgetLevel: budgetLevels.length ? budgetLevels : [1, 2, 3, 4],
     neighborhood: neighborhoods,
     savedOnly: !suggestNew,
@@ -475,12 +475,23 @@ export default function PlanScreen() {
               )}
             </View>
           </View>
+        ) : !vibe ? (
+          /* ── Vibe grid ──────────────────────────────────────────────── */
+          <View style={styles.vibeGridWrap}>
+            <Text style={[styles.vibeGridHeading, { color: colors.foreground, fontFamily: 'Inter_700Bold' }]}>
+              What kind of vibe?
+            </Text>
+            <Text style={[styles.vibeGridSub, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              Pick one to start planning
+            </Text>
+            <VibeGrid onSelect={v => { setVibe(v); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }} />
+          </View>
         ) : (
+          /* ── Form (vibe chosen) ─────────────────────────────────────── */
           <>
-            {/* Vibe */}
-            <View style={styles.section}>
-              <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'Inter_500Medium' }]}>VIBE</Text>
-              <VibeSelector selected={vibe} onSelect={v => { setVibe(v); Haptics.selectionAsync(); }} />
+            {/* Vibe summary card */}
+            <View style={[styles.section, { marginBottom: 8 }]}>
+              <VibeCard vibe={vibe} onClear={() => setVibe(null)} />
             </View>
 
             {/* Date */}
@@ -789,8 +800,8 @@ export default function PlanScreen() {
         backgroundColor: colors.background,
         borderTopColor: colors.border,
       }]}>
-        {/* Suggest new places toggle */}
-        <TouchableOpacity
+        {/* Suggest new places toggle — only shown when vibe is chosen */}
+        {(mode === 'chat' || !!vibe) && <TouchableOpacity
           onPress={() => { setSuggestNew(v => !v); Haptics.selectionAsync(); }}
           activeOpacity={0.7}
           style={styles.checkboxRow}
@@ -811,26 +822,36 @@ export default function PlanScreen() {
                 : 'Only generate moves from your saved places'}
             </Text>
           </View>
-        </TouchableOpacity>
+        </TouchableOpacity>}
 
         <TouchableOpacity
           onPress={mode === 'chat' ? handleChatSubmit : handleGenerate}
-          disabled={generating || chatLoading || (mode === 'chat' && !chatInput.trim())}
+          disabled={generating || chatLoading || (mode === 'chat' && !chatInput.trim()) || (mode === 'form' && !vibe)}
           activeOpacity={0.85}
           style={[styles.generateBtn, {
-            backgroundColor: (mode === 'chat' && !chatInput.trim()) ? colors.muted : colors.primary,
+            backgroundColor: ((mode === 'chat' && !chatInput.trim()) || (mode === 'form' && !vibe))
+              ? colors.muted
+              : colors.primary,
           }]}
         >
           {(generating || chatLoading) ? (
             <ActivityIndicator color={colors.primaryForeground} size="small" />
           ) : (
             <>
-              <Ionicons name="sparkles" size={18} color={(mode === 'chat' && !chatInput.trim()) ? colors.mutedForeground : colors.primaryForeground} />
+              <Ionicons
+                name="sparkles"
+                size={18}
+                color={((mode === 'chat' && !chatInput.trim()) || (mode === 'form' && !vibe))
+                  ? colors.mutedForeground
+                  : colors.primaryForeground}
+              />
               <Text style={[styles.generateText, {
-                color: (mode === 'chat' && !chatInput.trim()) ? colors.mutedForeground : colors.primaryForeground,
+                color: ((mode === 'chat' && !chatInput.trim()) || (mode === 'form' && !vibe))
+                  ? colors.mutedForeground
+                  : colors.primaryForeground,
                 fontFamily: 'Inter_700Bold',
               }]}>
-                {mode === 'chat' ? 'Plan It' : 'Generate Moves'}
+                {mode === 'chat' ? 'Plan It' : 'Build the move'}
               </Text>
             </>
           )}
@@ -968,4 +989,8 @@ const styles = StyleSheet.create({
     gap: 10, paddingVertical: 16, borderRadius: 16,
   },
   generateText: { fontSize: 16, letterSpacing: 0.5 },
+  // Vibe grid
+  vibeGridWrap: { gap: 14, paddingBottom: 20 },
+  vibeGridHeading: { fontSize: 26, letterSpacing: 0.3, lineHeight: 32 },
+  vibeGridSub: { fontSize: 14, lineHeight: 20, marginTop: -4 },
 });
