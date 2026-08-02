@@ -256,15 +256,17 @@ export default function MoodBoard() {
 
       {/* ── Vibe grid — only shown before a choice is made ── */}
       {!chosen && <div style={{
-        flex: '1 1 auto',
-        overflowY: 'auto',
+        flex: '1 1 0',
+        overflow: 'hidden',
         padding: '0 20px',
       }}>
         <div style={{
+          height: '100%',
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
+          gridTemplateRows: 'repeat(5, 1fr)',
           gap: 10,
-          paddingBottom: 16,
+          paddingBottom: 10,
         }}>
           {VIBES.map(v => (
               <button
@@ -272,7 +274,7 @@ export default function MoodBoard() {
                 onClick={() => setChosen(v.id)}
                 style={{
                   position: 'relative',
-                  height: 118,
+                  height: '100%',
                   borderRadius: 14,
                   border: `1.5px solid ${BORDER}`,
                   background: v.grad,
@@ -290,28 +292,28 @@ export default function MoodBoard() {
                 {/* Atmosphere glow orb */}
                 <div style={{
                   position: 'absolute',
-                  top: '15%', left: '50%', transform: 'translateX(-50%)',
-                  width: 50, height: 50,
+                  top: '20%', left: '50%', transform: 'translateX(-50%)',
+                  width: 70, height: 70,
                   background: `radial-gradient(circle, ${v.glow}55 0%, transparent 70%)`,
                   borderRadius: '50%',
                 }} />
 
                 {/* Icon */}
                 <div style={{
-                  position: 'absolute', top: 14, left: 14,
-                  fontSize: 22, lineHeight: 1,
-                  filter: `drop-shadow(0 0 8px ${v.glow})`,
+                  position: 'absolute', top: 16, left: 16,
+                  fontSize: 28, lineHeight: 1,
+                  filter: `drop-shadow(0 0 10px ${v.glow})`,
                 }}>
                   {v.icon}
                 </div>
 
                 {/* Label area */}
                 <div style={{
-                  padding: '0 12px 12px',
+                  padding: '0 14px 14px',
                   width: '100%',
                 }}>
                   <div style={{
-                    fontSize: 13,
+                    fontSize: 15,
                     fontWeight: 700,
                     color: FG,
                     lineHeight: 1.2,
@@ -321,7 +323,7 @@ export default function MoodBoard() {
                   }}>
                     {v.label}
                   </div>
-                  <div style={{ fontSize: 10, color: MUTED, marginTop: 2, fontWeight: 400 }}>
+                  <div style={{ fontSize: 11, color: MUTED, marginTop: 3, fontWeight: 400 }}>
                     {v.sub}
                   </div>
                 </div>
