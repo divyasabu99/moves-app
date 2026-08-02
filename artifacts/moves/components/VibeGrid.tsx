@@ -220,12 +220,12 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#F0EAD8',
+    color: '#F2E8D4',
     fontFamily: 'Inter_700Bold',
   },
   cardSub: {
     fontSize: 10,
-    color: '#7A6E60',
+    color: '#8C7D69',
     fontFamily: 'Inter_400Regular',
   },
   // ── Summary card ──────────────────────────────────────────────────────────
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   },
   summarySub: {
     fontSize: 11,
-    color: '#7A6E60',
+    color: '#8C7D69',
     fontFamily: 'Inter_400Regular',
   },
   changeBtn: {
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   changeBtnText: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#9A8E80',
+    color: '#8C7D69',
     fontFamily: 'Inter_500Medium',
   },
 });

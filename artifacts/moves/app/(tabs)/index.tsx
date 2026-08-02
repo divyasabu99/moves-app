@@ -241,7 +241,7 @@ export default function PlanScreen() {
                   {(user?.displayName ?? 'M').charAt(0).toUpperCase()}
                 </Text>
               </TouchableOpacity>
-              <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_700Bold', flex: 1, textAlign: 'center' }]}>
+              <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_400Regular', flex: 1, textAlign: 'center' }]}>
                 MOVES
               </Text>
               {/* Spacer mirrors the avatar width so the logo stays centred */}
@@ -283,7 +283,7 @@ export default function PlanScreen() {
               </Text>
             </TouchableOpacity>
             <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_700Bold' }]}>
+              <Text style={[styles.logo, { color: colors.primary, fontFamily: 'Inter_400Regular' }]}>
                 MOVES
               </Text>
             </View>
@@ -311,6 +311,9 @@ export default function PlanScreen() {
             </View>
           </View>
         )}
+
+        {/* Thin amber divider — Warm Editorial signature */}
+        <View style={[styles.headerDivider, { backgroundColor: colors.primary + '40' }]} />
 
         {mode === 'chat' ? (
           <View style={styles.chatSection}>
@@ -868,7 +871,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start',
     justifyContent: 'space-between', paddingBottom: 24,
   },
-  logo: { fontSize: 34, letterSpacing: 5 },
+  logo: { fontSize: 28, letterSpacing: 10 },
   tagline: { fontSize: 13, letterSpacing: 0.5, marginTop: 2 },
   avatarBtn: {
     width: 40, height: 40, borderRadius: 20, borderWidth: 1,
@@ -993,4 +996,6 @@ const styles = StyleSheet.create({
   vibeGridWrap: { gap: 14, paddingBottom: 20 },
   vibeGridHeading: { fontSize: 26, letterSpacing: 0.3, lineHeight: 32 },
   vibeGridSub: { fontSize: 14, lineHeight: 20, marginTop: -4 },
+  // Warm Editorial divider
+  headerDivider: { height: 1, marginHorizontal: 0, marginBottom: 16, opacity: 0.6 },
 });
