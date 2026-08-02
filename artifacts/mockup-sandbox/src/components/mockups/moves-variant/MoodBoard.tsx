@@ -79,14 +79,16 @@ type VibeId = typeof VIBES[number]['id'];
 
 const DATES = ['Tonight', 'Tomorrow', 'Sat', 'Sun'];
 const BUDGETS = ['$', '$$', '$$$'];
-const NEIGHBORHOODS = ['Any', 'West Village', 'Williamsburg', 'SoHo', 'LES', 'Greenpoint'];
+const NEIGHBORHOODS = ['West Village', 'Williamsburg', 'SoHo', 'LES', 'Greenpoint', 'Astoria'];
 
 export default function MoodBoard() {
   const [chosen, setChosen] = useState<VibeId | null>(null);
   const [date, setDate] = useState('Tonight');
   const [people, setPeople] = useState(2);
   const [budget, setBudget] = useState('$$');
-  const [hood, setHood] = useState('Any');
+  const [hood, setHood] = useState('');
+  const [hoodInput, setHoodInput] = useState('');
+  const [hoodFocused, setHoodFocused] = useState(false);
 
   const chosenVibe = VIBES.find(v => v.id === chosen);
   const isReady = chosen !== null;
@@ -296,12 +298,97 @@ export default function MoodBoard() {
 
         {/* WHERE */}
         <LogRow label="WHERE">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {NEIGHBORHOODS.map(n => (
-              <Chip key={n} active={hood === n} onClick={() => setHood(n)} accent={PRIMARY} accentFg={PRIMARY_FG} small>
-                {n}
-              </Chip>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Text input */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: '#1C1810',
+              border: `1px solid ${hoodFocused ? PRIMARY + '88' : hood && !NEIGHBORHOODS.includes(hood) ? PRIMARY + '66' : BORDER}`,
+              borderRadius: 10,
+              padding: '8px 11px',
+              transition: 'border-color 0.15s',
+            }}>
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="6" cy="6" r="4.5" stroke={hoodFocused ? PRIMARY : MUTED} strokeWidth="1.5" />
+                <path d="M10 10L12.5 12.5" stroke={hoodFocused ? PRIMARY : MUTED} strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <input
+                value={hoodInput}
+                onChange={e => {
+                  setHoodInput(e.target.value);
+                  // Clear chip selection while typing
+                  if (hood && NEIGHBORHOODS.includes(hood)) setHood('');
+                }}
+                onFocus={() => setHoodFocused(true)}
+                onBlur={() => setHoodFocused(false)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && hoodInput.trim()) {
+                    setHood(hoodInput.trim());
+                    setHoodInput('');
+                  }
+                }}
+                placeholder="Type a neighborhood…"
+                style={{
+                  flex: 1, background: 'none', border: 'none', outline: 'none',
+                  color: FG, fontSize: 13, fontFamily: 'inherit',
+                  '::placeholder': { color: MUTED },
+                } as React.CSSProperties}
+              />
+              {/* Show active custom hood as a tag, or clear button while typing */}
+              {hood && !NEIGHBORHOODS.includes(hood) && !hoodInput && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  background: PRIMARY, borderRadius: 100, padding: '2px 8px',
+                  fontSize: 11, fontWeight: 600, color: PRIMARY_FG, flexShrink: 0,
+                }}>
+                  {hood}
+                  <span
+                    onClick={() => setHood('')}
+                    style={{ cursor: 'pointer', opacity: 0.7, fontSize: 13, lineHeight: 1 }}
+                  >×</span>
+                </div>
+              )}
+              {hoodInput && (
+                <span
+                  onClick={() => setHoodInput('')}
+                  style={{ cursor: 'pointer', color: MUTED, fontSize: 16, lineHeight: 1, flexShrink: 0 }}
+                >×</span>
+              )}
+            </div>
+
+            {/* Preset chips — filtered by input */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {NEIGHBORHOODS
+                .filter(n => !hoodInput || n.toLowerCase().includes(hoodInput.toLowerCase()))
+                .map(n => (
+                  <Chip
+                    key={n}
+                    active={hood === n}
+                    onClick={() => { setHood(n); setHoodInput(''); }}
+                    accent={PRIMARY}
+                    accentFg={PRIMARY_FG}
+                    small
+                  >
+                    {n}
+                  </Chip>
+                ))
+              }
+              {/* "Use this" hint when typing something not in list */}
+              {hoodInput && !NEIGHBORHOODS.some(n => n.toLowerCase() === hoodInput.toLowerCase()) && (
+                <button
+                  onClick={() => { setHood(hoodInput.trim()); setHoodInput(''); }}
+                  style={{
+                    padding: '5px 10px', borderRadius: 100,
+                    border: `1px dashed ${PRIMARY}88`,
+                    background: PRIMARY + '12',
+                    color: PRIMARY, fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 4,
+                  }}
+                >
+                  <span style={{ fontSize: 13 }}>+</span> "{hoodInput.trim()}"
+                </button>
+              )}
+            </div>
           </div>
         </LogRow>
       </div>
