@@ -15,13 +15,17 @@ import React, { useState } from 'react';
 // - No scrolling until after you choose a vibe; the choice is the dominant act
 // ────────────────────────────────────────────────────────────────────────────
 
-const BG = '#0F0D0A';
-const FG = '#F0EAD8';
-const MUTED = '#7A6E60';
-const BORDER = '#2C2518';
-const PRIMARY = '#D4A853';    // amber gold
-const PRIMARY_FG = '#0F0D0A';
-const ACCENT = '#8B6BAE';     // muted plum
+// ── Warm Editorial color scale (matched from WarmEditorial.tsx) ───────────────
+const BG         = '#1C1710';    // candlelit dark brown
+const CARD       = '#26201A';    // elevated surface
+const CARD_ALT   = '#2C2519';    // slightly lighter surface (calendar popup etc.)
+const FG         = '#F2E8D4';    // warm parchment
+const MUTED      = '#8C7D69';    // warm grey-tan
+const FG_SUBTLE  = '#574D41';    // very subtle text
+const BORDER     = '#3D3125';    // warm, more-visible border
+const PRIMARY    = '#D4A853';    // amber gold — unchanged
+const PRIMARY_FG = '#1C1710';    // dark on amber
+const ACCENT     = '#8B6BAE';    // muted plum — unchanged
 
 // Each vibe card: gradient simulates the atmospheric photo
 const VIBES = [
@@ -195,6 +199,9 @@ export default function MoodBoard() {
         </button>
       </div>
 
+      {/* ── Warm amber hairline (Warm Editorial signature) ── */}
+      <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${PRIMARY}40, transparent)`, margin: '8px 20px 0', flexShrink: 0 }} />
+
       {/* ── Big question / chosen summary ── */}
       <div style={{ padding: '20px 20px 14px', flexShrink: 0 }}>
         {!chosen ? (
@@ -350,7 +357,7 @@ export default function MoodBoard() {
             {/* Trigger */}
             <button onClick={() => setCalOpen(o => !o)} style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: '#1C1810', border: `1px solid ${calOpen ? PRIMARY + '88' : BORDER}`,
+              background: CARD, border: `1px solid ${calOpen ? PRIMARY + '88' : BORDER}`,
               borderRadius: 10, padding: '10px 14px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}>
@@ -373,7 +380,7 @@ export default function MoodBoard() {
             {calOpen && (
               <div style={{
                 position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 10,
-                background: '#231D15', border: `1px solid ${PRIMARY}55`,
+                background: CARD_ALT, border: `1px solid ${PRIMARY}55`,
                 borderRadius: 12, overflow: 'hidden',
                 boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${PRIMARY}22`,
               }}>
@@ -432,13 +439,13 @@ export default function MoodBoard() {
                     onChange={e => set(e.target.value)}
                     style={{
                       width: '100%', appearance: 'none', WebkitAppearance: 'none',
-                      background: '#1C1810', border: `1px solid ${BORDER}`,
+                      background: CARD, border: `1px solid ${BORDER}`,
                       borderRadius: 10, padding: '9px 32px 9px 12px',
                       color: FG, fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
                       outline: 'none',
                     }}
                   >
-                    {TIME_SLOTS.map(t => <option key={t} value={t} style={{ background: '#1C1810' }}>{t}</option>)}
+                    {TIME_SLOTS.map(t => <option key={t} value={t} style={{ background: CARD }}>{t}</option>)}
                   </select>
                   {/* Custom chevron */}
                   <svg style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
@@ -453,7 +460,7 @@ export default function MoodBoard() {
 
         {/* WHO */}
         <LogRow label="WHO">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#1C1810', border: `1px solid ${BORDER}`, borderRadius: 10, overflow: 'hidden', width: 'fit-content' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, overflow: 'hidden', width: 'fit-content' }}>
             <StepBtn onClick={() => setPeople(p => Math.max(1, p - 1))} disabled={people <= 1}>−</StepBtn>
             <div style={{ width: 40, textAlign: 'center', fontSize: 16, fontWeight: 700, color: FG, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}`, lineHeight: '40px' }}>
               {people}
@@ -479,7 +486,7 @@ export default function MoodBoard() {
             {/* Text input */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              background: '#1C1810',
+              background: CARD,
               border: `1px solid ${hoodFocused ? PRIMARY + '88' : hood && !NEIGHBORHOODS.includes(hood) ? PRIMARY + '66' : BORDER}`,
               borderRadius: 10,
               padding: '8px 11px',
@@ -639,7 +646,7 @@ function Chip({ active, onClick, children, accent, accentFg, small }: {
       padding: small ? '5px 10px' : '7px 13px',
       borderRadius: 100,
       border: `1px solid ${active ? accent : BORDER}`,
-      background: active ? accent : '#1C1810',
+      background: active ? accent : CARD,
       color: active ? accentFg : FG,
       fontSize: small ? 11 : 12,
       fontWeight: active ? 600 : 400,
