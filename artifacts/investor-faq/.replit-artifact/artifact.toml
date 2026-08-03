@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/investor-faq/"
+title = "MOVES Investor FAQ"
+description = "A shareable investor FAQ page for MOVES — the NYC AI-powered social itinerary app. Answers 16 standard investor questions in the MOVES deck aesthetic (dark background, Inter font, blue/purple accents). Designed for founders to share as a clean public link after sending the pitch deck."
+version = "1.0.0"
+id = "artifacts/investor-faq"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/investor-faq/" ]
+localPort = 23121
+
+[services.development]
+run = "pnpm --filter @workspace/investor-faq run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/investor-faq", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/investor-faq/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23121"
+BASE_PATH = "/investor-faq/"
