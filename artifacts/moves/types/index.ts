@@ -147,4 +147,7 @@ export interface Receipt {
   total: number;
   summary: ReceiptSummaryEntry[];
   createdAt: string;
+  confirmedAt: string | null;
+  /** True when the authenticated caller is allowed to confirm this receipt */
+  canConfirm: boolean;
 }

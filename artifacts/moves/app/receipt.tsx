@@ -45,9 +45,10 @@ interface ItemRowProps {
   myUserId: string;
   onToggleClaim: (itemIndex: number) => void;
   pendingClaims: Set<number>; // locally pending before save
+  isLocked: boolean;
 }
 
-function ItemRow({ item, myUserId, onToggleClaim, pendingClaims }: ItemRowProps) {
+function ItemRow({ item, myUserId, onToggleClaim, pendingClaims, isLocked }: ItemRowProps) {
   const colors = useColors();
   // pendingClaims reflects the desired state (initialized from server, toggled locally)
   const claimedByMe = pendingClaims.has(item.index);
@@ -57,23 +58,31 @@ function ItemRow({ item, myUserId, onToggleClaim, pendingClaims }: ItemRowProps)
 
   return (
     <TouchableOpacity
-      onPress={() => { Haptics.selectionAsync(); onToggleClaim(item.index); }}
-      activeOpacity={0.75}
+      onPress={() => {
+        if (isLocked) return;
+        Haptics.selectionAsync();
+        onToggleClaim(item.index);
+      }}
+      activeOpacity={isLocked ? 1 : 0.75}
       style={[
         styles.itemRow,
         {
           backgroundColor: claimedByMe ? colors.primary + '18' : colors.card,
           borderColor: claimedByMe ? colors.primary + '55' : colors.border,
+          opacity: isLocked ? 0.85 : 1,
         },
       ]}
     >
       <View style={styles.itemLeft}>
-        {/* Checkmark */}
+        {/* Checkmark / lock */}
         <View style={[
           styles.itemCheck,
           { backgroundColor: claimedByMe ? colors.primary : 'transparent', borderColor: claimedByMe ? colors.primary : colors.border },
         ]}>
-          {claimedByMe && <Ionicons name="checkmark" size={12} color={colors.primaryForeground} />}
+          {isLocked
+            ? claimedByMe && <Ionicons name="checkmark" size={12} color={colors.primaryForeground} />
+            : claimedByMe && <Ionicons name="checkmark" size={12} color={colors.primaryForeground} />
+          }
         </View>
         <View style={styles.itemInfo}>
           <Text style={[styles.itemName, { color: colors.foreground, fontFamily: 'Inter_500Medium' }]} numberOfLines={2}>
@@ -82,6 +91,7 @@ function ItemRow({ item, myUserId, onToggleClaim, pendingClaims }: ItemRowProps)
           {item.claimedBy.length > 0 && (
             <Text style={[styles.itemClaimants, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
               {item.claimedBy.map(c => c.displayName.split(' ')[0]).join(', ')}
+              {item.claimedBy.length > 1 && ` · split ${item.claimedBy.length} ways`}
             </Text>
           )}
         </View>
@@ -112,9 +122,12 @@ export default function ReceiptScreen() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   // pendingClaims stores the DESIRED set of item indexes the user wants to claim
   const [pendingClaims, setPendingClaims] = useState<Set<number>>(new Set());
   const [claimsDirty, setClaimsDirty] = useState(false);
+
+  const isConfirmed = !!receipt?.confirmedAt;
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 12);
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 32);
@@ -256,6 +269,11 @@ export default function ReceiptScreen() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
         body: JSON.stringify({ itemIndexes: Array.from(pendingClaims) }),
       });
+      if (res.status === 409) {
+        Alert.alert('Locked', 'The receipt has been confirmed — you can no longer change your items.');
+        setClaimsDirty(false);
+        return;
+      }
       if (!res.ok) throw new Error('Save failed');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setClaimsDirty(false);
@@ -265,6 +283,40 @@ export default function ReceiptScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const confirmReceipt = () => {
+    if (!receipt || !user?.token) return;
+    Alert.alert(
+      'Finalize & Send?',
+      'This will lock everyone\'s items and notify the group what they owe. You won\'t be able to change claims after this.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Finalize',
+          style: 'default',
+          onPress: async () => {
+            setConfirming(true);
+            try {
+              const res = await fetch(`${BASE_URL()}/receipts/${receipt.id}/confirm`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${user.token}` },
+              });
+              if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Could not confirm' }));
+                throw new Error(err.error ?? 'Could not confirm');
+              }
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              await fetchReceipt();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message ?? 'Could not finalize. Try again.');
+            } finally {
+              setConfirming(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -345,10 +397,29 @@ export default function ReceiptScreen() {
             </Text>
           </View>
 
+          {/* Confirmation status banner */}
+          {isConfirmed ? (
+            <View style={[styles.statusBanner, { backgroundColor: '#16a34a18', borderColor: '#16a34a44' }]}>
+              <Ionicons name="lock-closed" size={14} color="#16a34a" />
+              <Text style={[styles.statusText, { color: '#16a34a', fontFamily: 'Inter_600SemiBold' }]}>
+                Confirmed — amounts are locked
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.statusBanner, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '33' }]}>
+              <Ionicons name="time-outline" size={14} color={colors.primary} />
+              <Text style={[styles.statusText, { color: colors.primary, fontFamily: 'Inter_500Medium' }]}>
+                Claiming in progress — not finalized yet
+              </Text>
+            </View>
+          )}
+
           {/* Instructions */}
-          <Text style={[styles.instruction, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-            Tap items you ordered to claim them. Items split between multiple people are divided equally.
-          </Text>
+          {!isConfirmed && (
+            <Text style={[styles.instruction, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
+              Tap items you ordered to claim them. Multiple people can claim the same item — the cost splits evenly.
+            </Text>
+          )}
 
           {/* Items */}
           <SectionLabel label="ITEMS" colors={colors} />
@@ -359,6 +430,7 @@ export default function ReceiptScreen() {
               myUserId={userId ?? ''}
               onToggleClaim={toggleClaim}
               pendingClaims={pendingClaims}
+              isLocked={isConfirmed}
             />
           ))}
 
@@ -379,26 +451,46 @@ export default function ReceiptScreen() {
             </View>
           )}
 
+          {/* Finalize button — visible to uploader/group creator only, before confirmation */}
+          {receipt.canConfirm && !isConfirmed && (
+            <TouchableOpacity
+              onPress={confirmReceipt}
+              disabled={confirming}
+              activeOpacity={0.85}
+              style={[styles.finalizeBtn, { backgroundColor: colors.primary }]}
+            >
+              {confirming
+                ? <ActivityIndicator color={colors.primaryForeground} size="small" />
+                : <>
+                    <Ionicons name="checkmark-circle-outline" size={18} color={colors.primaryForeground} />
+                    <Text style={[styles.finalizeBtnText, { color: colors.primaryForeground, fontFamily: 'Inter_700Bold' }]}>
+                      Finalize & Send
+                    </Text>
+                  </>
+              }
+            </TouchableOpacity>
+          )}
+
           {/* Summary */}
-          <SectionLabel label="WHO OWES WHAT" colors={colors} />
+          <SectionLabel
+            label={isConfirmed ? 'CONFIRMED AMOUNTS' : 'WHO OWES WHAT (DRAFT)'}
+            colors={colors}
+          />
           {receipt.summary.map(entry => {
             const isMe = entry.userId === userId;
             const isUploader = entry.isUploader;
             const amt = entry.subtotal;
 
-            // Recompute from pending claims for the current user
+            // Recompute from pending claims for the current user (only in draft mode)
             let displayAmt = amt;
-            if (isMe && claimsDirty) {
-              // Recalculate based on pending claims
+            if (!isConfirmed && isMe && claimsDirty) {
               let myTotal = 0;
               for (const item of receipt.items) {
                 if (!pendingClaims.has(item.index)) continue;
-                // Count claimants: existing claimants adjusted for my toggle
                 const otherCount = item.claimedBy.filter(c => c.userId !== userId).length;
-                const totalClaimants = otherCount + 1; // me
+                const totalClaimants = otherCount + 1;
                 myTotal += item.price / totalClaimants;
               }
-              // Add proportional extras
               const claimedSubtotal = receipt.items
                 .filter(it => pendingClaims.has(it.index))
                 .reduce((s, it) => {
@@ -414,6 +506,14 @@ export default function ReceiptScreen() {
               displayAmt = Math.round(displayAmt * 100) / 100;
             }
 
+            const actionLabel = isUploader
+              ? 'Paid the bill'
+              : displayAmt > 0
+                ? `Owes ${receipt.uploadedBy.id === userId ? 'you' : receipt.uploadedBy.displayName.split(' ')[0]}`
+                : isConfirmed
+                  ? 'Nothing claimed'
+                  : 'Nothing claimed yet';
+
             return (
               <View
                 key={entry.userId}
@@ -421,7 +521,9 @@ export default function ReceiptScreen() {
                   styles.summaryRow,
                   {
                     backgroundColor: isMe ? colors.primary + '12' : colors.card,
-                    borderColor: isMe ? colors.primary + '44' : colors.border,
+                    borderColor: isMe
+                      ? isConfirmed ? colors.primary + '66' : colors.primary + '44'
+                      : colors.border,
                   },
                 ]}
               >
@@ -435,30 +537,34 @@ export default function ReceiptScreen() {
                     {isMe ? `${entry.displayName} (you)` : entry.displayName}
                   </Text>
                   <Text style={[styles.summaryAction, { color: colors.mutedForeground, fontFamily: 'Inter_400Regular' }]}>
-                    {isUploader
-                      ? 'Paid the bill'
-                      : displayAmt > 0
-                        ? `Owes ${receipt.uploadedBy.id === userId ? 'you' : receipt.uploadedBy.displayName.split(' ')[0]}`
-                        : 'Nothing claimed yet'}
+                    {actionLabel}
                   </Text>
                 </View>
-                <Text style={[
-                  styles.summaryAmt,
-                  {
-                    color: isUploader ? colors.mutedForeground : displayAmt > 0 ? colors.foreground : colors.mutedForeground,
-                    fontFamily: 'Inter_700Bold',
-                  },
-                ]}>
-                  {isUploader ? `$${receipt.total.toFixed(2)}` : displayAmt > 0 ? `$${displayAmt.toFixed(2)}` : '—'}
-                </Text>
+                <View style={styles.summaryAmtCol}>
+                  <Text style={[
+                    styles.summaryAmt,
+                    {
+                      color: isUploader ? colors.mutedForeground : displayAmt > 0 ? colors.foreground : colors.mutedForeground,
+                      fontFamily: 'Inter_700Bold',
+                    },
+                  ]}>
+                    {isUploader ? `$${receipt.total.toFixed(2)}` : displayAmt > 0 ? `$${displayAmt.toFixed(2)}` : '—'}
+                  </Text>
+                  {isConfirmed && !isUploader && displayAmt > 0 && (
+                    <View style={[styles.finalizedBadge, { backgroundColor: '#16a34a22', borderColor: '#16a34a44' }]}>
+                      <Ionicons name="lock-closed" size={9} color="#16a34a" />
+                      <Text style={[styles.finalizedBadgeText, { color: '#16a34a', fontFamily: 'Inter_500Medium' }]}>final</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             );
           })}
         </ScrollView>
       )}
 
-      {/* Save claims button */}
-      {claimsDirty && receipt && (
+      {/* Save claims button — hidden once confirmed */}
+      {claimsDirty && receipt && !isConfirmed && (
         <View style={[styles.saveBar, { backgroundColor: colors.background, borderTopColor: colors.border, bottom: botPad }]}>
           <TouchableOpacity
             onPress={saveClaims}
@@ -581,6 +687,28 @@ const styles = StyleSheet.create({
   summaryName: { fontSize: 15 },
   summaryAction: { fontSize: 12, marginTop: 2 },
   summaryAmt: { fontSize: 20 },
+
+  // Status banner
+  statusBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  statusText: { fontSize: 12 },
+
+  // Finalize button
+  finalizeBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 14, marginTop: 4,
+  },
+  finalizeBtnText: { fontSize: 16 },
+
+  // Summary amount column + finalized badge
+  summaryAmtCol: { alignItems: 'flex-end', gap: 3 },
+  finalizedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    borderRadius: 6, borderWidth: 1, paddingHorizontal: 5, paddingVertical: 2,
+  },
+  finalizedBadgeText: { fontSize: 9 },
 
   // Save bar
   saveBar: {

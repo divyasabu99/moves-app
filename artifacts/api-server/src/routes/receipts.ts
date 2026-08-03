@@ -201,9 +201,10 @@ router.get("/receipts", requireAuth, async (req: Request, res: Response) => {
 
   try {
     const { rows } = await pool.query(
-      `SELECT r.*, u.display_name AS uploader_name
+      `SELECT r.*, u.display_name AS uploader_name, g.created_by AS group_creator
        FROM move_receipts r
        JOIN moves_users u ON u.id = r.uploaded_by
+       JOIN moves_groups g ON g.id = r.group_id
        WHERE r.share_id = $1`,
       [shareId]
     );
@@ -275,6 +276,9 @@ router.get("/receipts", requireAuth, async (req: Request, res: Response) => {
       isUploader: m.id === receipt.uploaded_by,
     }));
 
+    // Caller can confirm if they uploaded the receipt OR created the group
+    const canConfirm = userId === receipt.uploaded_by || userId === receipt.group_creator;
+
     res.json({
       id: receipt.id,
       shareId: receipt.share_id,
@@ -291,6 +295,8 @@ router.get("/receipts", requireAuth, async (req: Request, res: Response) => {
       total,
       summary,
       createdAt: receipt.created_at,
+      confirmedAt: receipt.confirmed_at ?? null,
+      canConfirm,
     });
   } catch (err: any) {
     console.error("receipts GET error:", err);
@@ -303,6 +309,7 @@ router.get("/receipts", requireAuth, async (req: Request, res: Response) => {
  * Header: Authorization: Bearer <token>
  * Body: { itemIndexes: number[] }
  * Replaces all claims for the authenticated user on this receipt.
+ * Returns 409 if the receipt has already been confirmed.
  */
 router.put("/receipts/:id/claims", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId as string;
@@ -317,12 +324,19 @@ router.put("/receipts/:id/claims", requireAuth, async (req: Request, res: Respon
   try {
     await client.query("BEGIN");
     const { rows } = await client.query(
-      "SELECT group_id, items FROM move_receipts WHERE id=$1",
+      "SELECT group_id, items, confirmed_at FROM move_receipts WHERE id=$1",
       [id]
     );
     if (rows.length === 0) {
       await client.query("ROLLBACK");
       res.status(404).json({ error: "Receipt not found" });
+      return;
+    }
+
+    // Block changes after confirmation
+    if (rows[0].confirmed_at) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "Receipt has been confirmed — claims are locked" });
       return;
     }
 
@@ -362,6 +376,54 @@ router.put("/receipts/:id/claims", requireAuth, async (req: Request, res: Respon
     res.status(500).json({ error: "Internal error" });
   } finally {
     client.release();
+  }
+});
+
+/**
+ * POST /api/receipts/:id/confirm
+ * Header: Authorization: Bearer <token>
+ * Finalizes the receipt — locks all amounts. Only the uploader or group creator
+ * may confirm. Idempotent (confirming an already-confirmed receipt is a no-op).
+ */
+router.post("/receipts/:id/confirm", requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as string;
+  const { id } = req.params;
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT r.uploaded_by, r.confirmed_at, g.created_by AS group_creator
+       FROM move_receipts r
+       JOIN moves_groups g ON g.id = r.group_id
+       WHERE r.id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      res.status(404).json({ error: "Receipt not found" });
+      return;
+    }
+
+    const receipt = rows[0];
+
+    // Only uploader or group creator may confirm
+    if (userId !== receipt.uploaded_by && userId !== receipt.group_creator) {
+      res.status(403).json({ error: "Only the person who uploaded the receipt or the group leader can confirm" });
+      return;
+    }
+
+    // Idempotent — already confirmed is fine
+    if (receipt.confirmed_at) {
+      res.json({ ok: true, confirmedAt: receipt.confirmed_at });
+      return;
+    }
+
+    const { rows: updated } = await pool.query(
+      "UPDATE move_receipts SET confirmed_at = NOW() WHERE id = $1 RETURNING confirmed_at",
+      [id]
+    );
+    res.json({ ok: true, confirmedAt: updated[0].confirmed_at });
+  } catch (err: any) {
+    console.error("confirm error:", err);
+    res.status(500).json({ error: "Internal error" });
   }
 });
 
