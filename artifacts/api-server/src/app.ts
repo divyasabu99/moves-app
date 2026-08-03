@@ -26,8 +26,13 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Receipt upload sends a base64 image — allow 10 MB for that route only.
+// All other routes keep a tight 256 KB ceiling.
+app.use((req, res, next) => {
+  const isReceiptUpload = req.method === "POST" && req.path === "/api/receipts";
+  express.json({ limit: isReceiptUpload ? "10mb" : "256kb" })(req, res, next);
+});
+app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
 app.use("/api", router);
 

@@ -68,6 +68,7 @@ function RootLayoutNav() {
         <Stack.Screen name="place-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="move-detail"  options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="group-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="receipt"     options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="settings"    options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>

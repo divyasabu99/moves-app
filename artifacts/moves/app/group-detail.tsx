@@ -27,8 +27,8 @@ function timeAgo(iso: string): string {
 }
 
 function SharedMoveCard({
-  item, isMine, onDelete,
-}: { item: SharedMove; isMine: boolean; onDelete: () => void }) {
+  item, isMine, groupId, onDelete,
+}: { item: SharedMove; isMine: boolean; groupId: string; onDelete: () => void }) {
   const colors = useColors();
   const dateLabel = new Date(item.move.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
@@ -87,6 +87,18 @@ function SharedMoveCard({
           </Text>
         )}
       </View>
+      {/* Split Bill button */}
+      <TouchableOpacity
+        onPress={() => router.push({ pathname: '/receipt', params: { shareId: item.id, groupId } })}
+        activeOpacity={0.75}
+        style={[styles.splitBtn, { borderTopColor: colors.border }]}
+      >
+        <Ionicons name="receipt-outline" size={14} color={colors.primary} />
+        <Text style={[styles.splitBtnText, { color: colors.primary, fontFamily: 'Inter_600SemiBold' }]}>
+          Split the Bill
+        </Text>
+        <Ionicons name="chevron-forward" size={14} color={colors.primary} style={{ marginLeft: 'auto' }} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -245,6 +257,7 @@ export default function GroupDetailScreen() {
                 <SharedMoveCard
                   item={item}
                   isMine={item.sharedBy.id === userId}
+                  groupId={id ?? ''}
                   onDelete={() => {
                     Alert.alert('Remove Move', 'Remove this move from the group?', [
                       { text: 'Cancel', style: 'cancel' },
@@ -396,6 +409,12 @@ const styles = StyleSheet.create({
   stopDot: { width: 6, height: 6, borderRadius: 3 },
   stopName: { fontSize: 13, flex: 1 },
   morePlaces: { fontSize: 12, marginLeft: 13 },
+  // Split bill button
+  splitBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderTopWidth: 1, paddingTop: 10, marginTop: 2,
+  },
+  splitBtnText: { fontSize: 13 },
   // Member row
   memberRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

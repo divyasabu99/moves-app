@@ -117,3 +117,34 @@ export interface SharedMove {
   sharedBy: { id: string; displayName: string };
   sharedAt: string;
 }
+
+// ── Receipt splitting ─────────────────────────────────────────────────────────
+
+export interface ReceiptItem {
+  index: number;
+  name: string;
+  price: number;
+  quantity: number;
+  claimedBy: { userId: string; displayName: string }[];
+}
+
+export interface ReceiptSummaryEntry {
+  userId: string;
+  displayName: string;
+  subtotal: number;
+  isUploader: boolean;
+}
+
+export interface Receipt {
+  id: string;
+  shareId: string;
+  groupId: string;
+  uploadedBy: { id: string; displayName: string };
+  items: ReceiptItem[];
+  subtotal: number;
+  tax: number;
+  tip: number;
+  total: number;
+  summary: ReceiptSummaryEntry[];
+  createdAt: string;
+}

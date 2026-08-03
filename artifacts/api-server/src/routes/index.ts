@@ -9,6 +9,7 @@ import suggestRouter from "./suggest.js";
 import authRouter from "./auth.js";
 import syncRouter from "./sync.js";
 import preferencesRouter from "./preferences.js";
+import receiptsRouter from "./receipts.js";
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use(groupsRouter);
 router.use(importRouter);
 router.use(lookupRouter);
 router.use(suggestRouter);
+router.use(receiptsRouter);
 
 export default router;
