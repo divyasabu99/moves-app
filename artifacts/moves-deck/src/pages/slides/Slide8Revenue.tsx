@@ -63,7 +63,7 @@ export default function Slide8Revenue() {
               </div>
               <div style={{ flex: 1, backgroundColor: 'rgba(79,127,255,0.07)', border: '1px solid rgba(79,127,255,0.15)', borderRadius: '0.7vw', padding: '1.5vh 1.2vw' }}>
                 <div style={{ fontSize: '0.95vw', fontWeight: 700, color: '#4F7FFF', marginBottom: '0.6vh' }}>Booking Commission</div>
-                <div style={{ fontSize: '1.1vw', color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>10% commission on reservations and ticket sales driven through the app</div>
+                <div style={{ fontSize: '1.1vw', color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>5% commission on group reservations — OpenTable-comparable; scales as MOVES proves group ROI</div>
               </div>
             </div>
           </div>
