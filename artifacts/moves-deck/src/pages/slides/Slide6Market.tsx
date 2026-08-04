@@ -94,7 +94,7 @@ export default function Slide6Market() {
           </div>
 
           <div style={{ fontSize: '0.82vw', color: 'rgba(255,255,255,0.28)', lineHeight: 1.5 }}>
-            Commission-only model. Does not include subscription revenue,<br />which could layer on top for power users.
+            Commission-only model. MOVES+ ($3.99/mo for 100+ saves) layers on top<br />as a secondary revenue stream for power users.
           </div>
         </div>
       </div>

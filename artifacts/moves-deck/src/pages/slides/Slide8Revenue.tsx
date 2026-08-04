@@ -72,7 +72,7 @@ export default function Slide8Revenue() {
           <div style={{ flex: 0.9, backgroundColor: '#131726', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '1vw', padding: '2.5vh 2.5vw', boxShadow: '0 1.5vh 4vh rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: '0.8vw', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6vh' }}>Secondary · Consumer</div>
             <div style={{ fontSize: '2vw', fontWeight: 700, marginBottom: '0.4vh', lineHeight: 1.15 }}>MOVES+</div>
-            <div style={{ fontSize: '4vw', fontWeight: 800, color: '#7C6BF0', lineHeight: 1, marginBottom: '0.3vh' }}>$5</div>
+            <div style={{ fontSize: '4vw', fontWeight: 800, color: '#7C6BF0', lineHeight: 1, marginBottom: '0.3vh' }}>$3.99</div>
             <div style={{ fontSize: '1.1vw', color: 'rgba(255,255,255,0.45)', marginBottom: '2.5vh' }}>per month</div>
 
             <div style={{ width: '100%', height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', marginBottom: '2.5vh' }} />
@@ -80,13 +80,13 @@ export default function Slide8Revenue() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5vh', flex: 1 }}>
               <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.6vw', padding: '1.4vh 1.4vw' }}>
                 <div style={{ fontSize: '0.95vw', fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: '0.4vh' }}>Free tier</div>
-                <div style={{ fontSize: '1.2vw', fontWeight: 500 }}>Save up to 50 places</div>
+                <div style={{ fontSize: '1.2vw', fontWeight: 500 }}>Save up to 100 places</div>
                 <div style={{ fontSize: '1.05vw', color: 'rgba(255,255,255,0.45)', marginTop: '0.2vh' }}>Unlimited Move generation</div>
               </div>
               <div style={{ backgroundColor: 'rgba(124,107,240,0.1)', border: '1px solid rgba(124,107,240,0.28)', borderRadius: '0.6vw', padding: '1.4vh 1.4vw' }}>
-                <div style={{ fontSize: '0.95vw', fontWeight: 600, color: '#7C6BF0', marginBottom: '0.4vh' }}>MOVES+ — $5/mo</div>
+                <div style={{ fontSize: '0.95vw', fontWeight: 600, color: '#7C6BF0', marginBottom: '0.4vh' }}>MOVES+ — $3.99/mo</div>
                 <div style={{ fontSize: '1.2vw', fontWeight: 500 }}>Unlimited places</div>
-                <div style={{ fontSize: '1.05vw', color: 'rgba(255,255,255,0.55)', marginTop: '0.2vh', lineHeight: 1.4 }}>For power users building a full personal library beyond 50 spots</div>
+                <div style={{ fontSize: '1.05vw', color: 'rgba(255,255,255,0.55)', marginTop: '0.2vh', lineHeight: 1.4 }}>For power users building a full personal library beyond 100 spots</div>
               </div>
             </div>
 
