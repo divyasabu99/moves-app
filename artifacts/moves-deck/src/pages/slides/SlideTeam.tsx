@@ -27,10 +27,10 @@ export default function SlideTeam() {
             <div style={{ display: 'flex', gap: '2vw', alignItems: 'flex-start', marginBottom: '2vh' }}>
               {/* Avatar placeholder */}
               <div style={{ width: '6vw', height: '6vw', borderRadius: '50%', backgroundColor: 'rgba(79,127,255,0.18)', border: '2px solid rgba(79,127,255,0.4)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: '1.8vw', fontWeight: 800, color: '#4F7FFF' }}>?</span>
+                <span style={{ fontSize: '1.8vw', fontWeight: 800, color: '#4F7FFF' }}>DS</span>
               </div>
               <div>
-                <div style={{ fontSize: '2.2vw', fontWeight: 800, lineHeight: 1.1, marginBottom: '0.4vh' }}>[YOUR NAME]</div>
+                <div style={{ fontSize: '2.2vw', fontWeight: 800, lineHeight: 1.1, marginBottom: '0.4vh' }}>Divya Sabu</div>
                 <div style={{ fontSize: '1.1vw', color: '#4F7FFF', fontWeight: 600 }}>Founder & CEO</div>
               </div>
             </div>
@@ -38,9 +38,9 @@ export default function SlideTeam() {
             {/* Background bullets */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4vh' }}>
               {[
-                '[YOUR ANSWER — e.g. previously built or worked at X, relevant experience]',
-                '[YOUR ANSWER — specific skill or domain expertise that makes you right for this]',
-                '[YOUR ANSWER — why you personally feel this problem — the personal story]',
+                'Background in Finance, Supply Chain, and Product Development — built for the operational complexity of launching a marketplace',
+                'Domain expertise across the full stack from unit economics to user experience',
+                'The group planner for every outing — firsthand experience of the exact friction MOVES solves',
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: '1vw', alignItems: 'flex-start' }}>
                   <div style={{ width: '1.3vw', height: '1.3vw', borderRadius: '0.3vw', backgroundColor: 'rgba(79,127,255,0.15)', border: '1px solid rgba(79,127,255,0.3)', flexShrink: 0, marginTop: '0.25vh' }} />
@@ -73,7 +73,7 @@ export default function SlideTeam() {
       </div>
 
       <div style={{ position: 'absolute', bottom: '4.5vh', left: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>MOVES INC.</div>
-      <div style={{ position: 'absolute', bottom: '4.5vh', right: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)' }}>11 / 12</div>
+      <div style={{ position: 'absolute', bottom: '4.5vh', right: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)' }}>11 / 11</div>
     </div>
   );
 }

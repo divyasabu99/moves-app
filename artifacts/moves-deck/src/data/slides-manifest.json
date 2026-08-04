@@ -44,7 +44,7 @@
 		"position": 6,
 		"filepath": "src/pages/slides/SlideTraction.tsx",
 		"title": "Traction",
-		"description": "Survey validation — 9/10 save places digitally, 80% positive concept reaction, prototype live",
+		"description": "Survey validation — 9/10 save places digitally, 80% positive concept reaction, prototype live, 50 waitlist sign-ups",
 		"speakerNotes": ""
 	},
 	{
@@ -84,15 +84,7 @@
 		"position": 11,
 		"filepath": "src/pages/slides/SlideTeam.tsx",
 		"title": "Team",
-		"description": "Founder background and why now — replace [YOUR ANSWER] placeholders",
-		"speakerNotes": ""
-	},
-	{
-		"id": "ask-slide-2026",
-		"position": 12,
-		"filepath": "src/pages/slides/SlideAsk.tsx",
-		"title": "The Ask",
-		"description": "Pre-seed raise — amount, use of funds, milestones, contact — replace [XXX] placeholders",
+		"description": "Divya Sabu — Finance / Supply Chain / Product Development, the group planner behind MOVES",
 		"speakerNotes": ""
 	}
 ]

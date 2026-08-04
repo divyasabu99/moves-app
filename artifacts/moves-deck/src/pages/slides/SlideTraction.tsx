@@ -44,8 +44,8 @@ export default function SlideTraction() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2vh' }}>
             {[
               { icon: '◉', label: 'Working prototype', detail: 'Full iOS/Android app live — save, plan, and group features built and running' },
-              { icon: '◉', label: 'Venue conversations', detail: '[YOUR ANSWER — e.g. "In early talks with 3 NYC venues about launch partnerships"]' },
-              { icon: '◉', label: 'Waitlist / early users', detail: '[YOUR ANSWER — e.g. "142 people signed up from Instagram in first 2 weeks"]' },
+              { icon: '◉', label: 'Venue partnerships', detail: 'Planning stage — venue outreach launching alongside product launch in NYC' },
+              { icon: '◉', label: 'Waitlist', detail: '50 early sign-ups ahead of launch' },
             ].map(r => (
               <div key={r.label} style={{ display: 'flex', gap: '1.2vw', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.7vw', padding: '1.2vh 1.4vw' }}>
                 <span style={{ fontSize: '0.7vw', color: '#27C93F', marginTop: '0.4vh', flexShrink: 0 }}>{r.icon}</span>
@@ -85,7 +85,7 @@ export default function SlideTraction() {
       </div>
 
       <div style={{ position: 'absolute', bottom: '4.5vh', left: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>MOVES INC.</div>
-      <div style={{ position: 'absolute', bottom: '4.5vh', right: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)' }}>06 / 12</div>
+      <div style={{ position: 'absolute', bottom: '4.5vh', right: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)' }}>06 / 11</div>
     </div>
   );
 }
