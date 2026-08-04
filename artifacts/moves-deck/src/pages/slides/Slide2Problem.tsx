@@ -1,10 +1,6 @@
+import redditImg from '../../assets/reddit-saves.png';
+
 export default function Slide2Problem() {
-  const saves = [
-    'Lilia — Williamsburg', 'Llama Inn — Greenpoint', 'Thai Villa — Astoria',
-    'Niche Niche — NoHo', 'Cecchi\'s — West Village', 'Bar Blondeau — Wythe',
-    'Lucali — Carroll Gardens', 'Le Crocodile — Williamsburg', 'Mr. Purple — LES',
-    'Superiority Burger', 'Atomix', 'Cote', 'Don Angie', 'attaboy',
-  ];
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', backgroundColor: '#0C0F1A', fontFamily: "'Inter', sans-serif", color: '#FFFFFF' }}>
@@ -32,27 +28,21 @@ export default function Slide2Problem() {
             People save hundreds of places across Google Maps, TikTok, and Instagram — and almost never go.
           </p>
 
-          {/* Saves graveyard mock */}
-          <div style={{ flex: 1, backgroundColor: '#131726', border: '1px solid rgba(255,80,80,0.2)', borderRadius: '1vw', padding: '1.8vh 1.8vw', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5vh' }}>
-              <div style={{ fontSize: '0.82vw', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Google Maps — Saved Places
-              </div>
-              <div style={{ fontSize: '0.82vw', color: 'rgba(255,80,80,0.7)', fontWeight: 600 }}>247 places</div>
+          {/* Reddit social proof */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.2vh' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8vw' }}>
+              <div style={{ width: '0.55vw', height: '0.55vw', borderRadius: '50%', backgroundColor: 'rgba(255,80,80,0.7)', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.82vw', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>r/LocalGuides — real user, unprompted</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7vh', overflow: 'hidden', flex: 1 }}>
-              {saves.map((place, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.8vw', padding: '0.6vh 0.8vw', backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: '0.4vw', opacity: i > 9 ? 0.3 : 1 - i * 0.04 }}>
-                  <div style={{ width: '0.55vw', height: '0.55vw', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.92vw', color: 'rgba(255,255,255,0.6)', flex: 1 }}>{place}</span>
-                  <span style={{ fontSize: '0.72vw', color: 'rgba(255,255,255,0.2)' }}>
-                    {i === 0 ? 'saved 3 years ago' : i === 1 ? 'saved 2 years ago' : i < 5 ? 'saved 18 months ago' : 'saved'}
-                  </span>
-                </div>
-              ))}
+            <div style={{ flex: 1, borderRadius: '0.9vw', overflow: 'hidden', border: '1px solid rgba(255,80,80,0.25)', boxShadow: '0 1.5vh 4vh rgba(255,80,80,0.08)' }}>
+              <img
+                src={redditImg}
+                alt="Reddit post: be honest, how many of your saved spots have you actually been to"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+              />
             </div>
-            <div style={{ marginTop: '1.2vh', padding: '0.8vh 1vw', backgroundColor: 'rgba(255,80,80,0.08)', borderRadius: '0.5vw', border: '1px solid rgba(255,80,80,0.18)', textAlign: 'center' }}>
-              <span style={{ fontSize: '0.88vw', color: 'rgba(255,100,100,0.8)', fontWeight: 500 }}>Never visited. Never acted on. Just a longer list.</span>
+            <div style={{ padding: '0.8vh 1vw', backgroundColor: 'rgba(255,80,80,0.08)', borderRadius: '0.5vw', border: '1px solid rgba(255,80,80,0.18)', textAlign: 'center' }}>
+              <span style={{ fontSize: '0.88vw', color: 'rgba(255,100,100,0.8)', fontWeight: 500 }}>200+ pins. Same thai for the fourth time this week.</span>
             </div>
           </div>
         </div>
@@ -87,7 +77,7 @@ export default function Slide2Problem() {
       </div>
 
       <div style={{ position: 'absolute', bottom: '4.5vh', left: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>MOVES INC.</div>
-      <div style={{ position: 'absolute', bottom: '4.5vh', right: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)' }}>02 / 12</div>
+      <div style={{ position: 'absolute', bottom: '4.5vh', right: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)' }}>02 / 11</div>
     </div>
   );
 }
