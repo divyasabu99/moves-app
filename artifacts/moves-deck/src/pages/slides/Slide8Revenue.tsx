@@ -16,8 +16,8 @@ export default function Slide8Revenue() {
           <div style={{ display: 'inline-flex', padding: '0.4vh 1.2vw', backgroundColor: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.28)', borderRadius: '2vw', color: '#4F7FFF', fontSize: '0.85vw', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.5vh' }}>
             Revenue Drivers
           </div>
-          <h2 style={{ fontSize: '3.2vw', fontWeight: 800, margin: '0 0 0.8vh 0', lineHeight: 1.1, letterSpacing: '-0.03em' }}>Venue partnerships drive the business</h2>
-          <p style={{ fontSize: '1.35vw', fontWeight: 300, color: 'rgba(255,255,255,0.5)', margin: 0 }}>MOVES is free for most users — venues pay to reach highly-intent audiences</p>
+          <h2 style={{ fontSize: '3.2vw', fontWeight: 800, margin: '0 0 0.8vh 0', lineHeight: 1.1, letterSpacing: '-0.03em' }}>Performance commission per group delivered</h2>
+          <p style={{ fontSize: '1.35vw', fontWeight: 300, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Venues pay only when MOVES sends them a real group — no impressions, no guesswork</p>
         </div>
 
         {/* Two-column layout */}
@@ -98,7 +98,7 @@ export default function Slide8Revenue() {
       </div>
 
       <div style={{ position: 'absolute', bottom: '4.5vh', left: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>MOVES INC.</div>
-      <div style={{ position: 'absolute', bottom: '4.5vh', right: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)' }}>08 / 10</div>
+      <div style={{ position: 'absolute', bottom: '4.5vh', right: '5vw', fontSize: '0.9vw', color: 'rgba(255,255,255,0.32)' }}>08 / 12</div>
     </div>
   );
 }
