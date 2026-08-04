@@ -8,6 +8,10 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import { useColors } from '@/hooks/useColors';
+import { useUser } from '@/context/UserContext';
+import { useMoves } from '@/context/MovesContext';
+import { GroupDetail, SharedMove, Move } from '@/types';
 // expo-contacts is native-only — imported dynamically inside openContactsPicker after web guard
 const BASE_URL = () => `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
