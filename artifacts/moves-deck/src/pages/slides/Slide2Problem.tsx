@@ -42,7 +42,7 @@ export default function Slide2Problem() {
               />
             </div>
             <div style={{ padding: '0.8vh 1vw', backgroundColor: 'rgba(255,80,80,0.08)', borderRadius: '0.5vw', border: '1px solid rgba(255,80,80,0.18)', textAlign: 'center' }}>
-              <span style={{ fontSize: '0.88vw', color: 'rgba(255,100,100,0.8)', fontWeight: 500 }}>200+ pins. Same thai for the fourth time this week.</span>
+              <span style={{ fontSize: '0.88vw', color: 'rgba(255,100,100,0.8)', fontWeight: 500 }}>200+ pins. Same Thai for the fourth time this week.</span>
             </div>
           </div>
         </div>
