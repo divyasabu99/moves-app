@@ -4,7 +4,8 @@ import jwt from "jsonwebtoken";
 import { pool } from "@workspace/db";
 
 const router = Router();
-const JWT_SECRET = process.env.SESSION_SECRET ?? "moves-secret-fallback";
+if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET env var is required");
+const JWT_SECRET: string = process.env.SESSION_SECRET;
 const SALT_ROUNDS = 10;
 
 function makeId(): string {
