@@ -50,7 +50,7 @@ function makeToken(): string {
   return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
-function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
   const auth = req.headers.authorization ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (token) {
@@ -63,17 +63,17 @@ function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const auth = req.headers.authorization ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) return res.status(401).json({ error: "Authentication required" });
+  if (!token) { res.status(401).json({ error: "Authentication required" }); return; }
   try {
     const payload = jwt.verify(token, JWT_SECRET) as { userId: string; displayName: string };
     (req as any).userId = payload.userId;
     (req as any).displayName = payload.displayName;
     next();
   } catch {
-    return res.status(401).json({ error: "Invalid or expired token" });
+    res.status(401).json({ error: "Invalid or expired token" }); return;
   }
 }
 
@@ -110,13 +110,13 @@ async function sendSms(to: string, body: string): Promise<{ ok: boolean; error?:
 // Body: { move, phones?: string[], message?: string }
 // Returns: { token, url, smsSent: boolean, smsError?: string }
 
-router.post("/share", requireAuth, async (req: Request, res: Response) => {
+router.post("/share", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as any).userId as string;
   const displayName = (req as any).displayName as string;
   const { move, phones, message } = req.body ?? {};
 
   if (!move || typeof move !== "object") {
-    return res.status(400).json({ error: "move is required" });
+    res.status(400).json({ error: "move is required" }); return;
   }
 
   try {
@@ -168,7 +168,7 @@ router.post("/share", requireAuth, async (req: Request, res: Response) => {
 // ── GET /api/shared/:token ────────────────────────────────────────────────────
 // Public — returns move data + reaction counts + recipient count
 
-router.get("/shared/:token", optionalAuth, async (req: Request, res: Response) => {
+router.get("/shared/:token", optionalAuth, async (req: Request, res: Response): Promise<void> => {
   const { token } = req.params;
   const userId = (req as any).userId as string | undefined;
 
@@ -185,7 +185,7 @@ router.get("/shared/:token", optionalAuth, async (req: Request, res: Response) =
       [token],
     );
 
-    if (row.rows.length === 0) return res.status(404).json({ error: "Share link not found" });
+    if (row.rows.length === 0) res.status(404).json({ error: "Share link not found" }); return;
 
     const r = row.rows[0];
 
@@ -231,20 +231,20 @@ router.get("/shared/:token", optionalAuth, async (req: Request, res: Response) =
 // Body: { reaction: 'up' | 'down', suggestion?: object }
 // Auth required
 
-router.post("/shared/:token/react", requireAuth, async (req: Request, res: Response) => {
+router.post("/shared/:token/react", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as any).userId as string;
   const { token } = req.params;
   const { reaction, suggestion } = req.body ?? {};
 
   if (!reaction || !["up", "down"].includes(reaction)) {
-    return res.status(400).json({ error: "reaction must be 'up' or 'down'" });
+    res.status(400).json({ error: "reaction must be 'up' or 'down'" }); return;
   }
 
   try {
     const tokenRow = await pool.query(
       `SELECT id FROM moves_share_tokens WHERE token = $1`, [token],
     );
-    if (tokenRow.rows.length === 0) return res.status(404).json({ error: "Share link not found" });
+    if (tokenRow.rows.length === 0) res.status(404).json({ error: "Share link not found" }); return;
 
     const tokenId = tokenRow.rows[0].id;
 
@@ -281,7 +281,7 @@ router.post("/shared/:token/react", requireAuth, async (req: Request, res: Respo
 // Copies the shared move into the user's own saved moves
 // Returns: the forked move (with new id)
 
-router.post("/shared/:token/fork", requireAuth, async (req: Request, res: Response) => {
+router.post("/shared/:token/fork", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as any).userId as string;
   const { token } = req.params;
 
@@ -289,7 +289,7 @@ router.post("/shared/:token/fork", requireAuth, async (req: Request, res: Respon
     const tokenRow = await pool.query(
       `SELECT move_data FROM moves_share_tokens WHERE token = $1`, [token],
     );
-    if (tokenRow.rows.length === 0) return res.status(404).json({ error: "Share link not found" });
+    if (tokenRow.rows.length === 0) res.status(404).json({ error: "Share link not found" }); return;
 
     const move = tokenRow.rows[0].move_data as any;
 
@@ -328,7 +328,7 @@ router.post("/shared/:token/fork", requireAuth, async (req: Request, res: Respon
 // Returns phone recipients for a move — only the creator of the share token
 // may view recipient data (avoids exposing PII to other users).
 
-router.get("/share/recipients/:moveId", requireAuth, async (req: Request, res: Response) => {
+router.get("/share/recipients/:moveId", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as any).userId as string;
   const { moveId } = req.params;
   try {
@@ -353,7 +353,7 @@ router.get("/share/recipients/:moveId", requireAuth, async (req: Request, res: R
 // ── GET /api/share/stats/:moveId ──────────────────────────────────────────────
 // Returns share stats for a move the current user created
 
-router.get("/share/stats/:moveId", requireAuth, async (req: Request, res: Response) => {
+router.get("/share/stats/:moveId", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as any).userId as string;
   const { moveId } = req.params;
 
@@ -370,7 +370,7 @@ router.get("/share/stats/:moveId", requireAuth, async (req: Request, res: Respon
     );
 
     if (row.rows.length === 0) {
-      return res.json({ shared: false });
+      res.json({ shared: false }); return;
     }
 
     const r = row.rows[0];

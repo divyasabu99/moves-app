@@ -3,20 +3,21 @@ import jwt from "jsonwebtoken";
 import { pool } from "@workspace/db";
 
 const router = Router();
-const JWT_SECRET = process.env.SESSION_SECRET ?? "moves-secret-fallback";
+if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET env var is required");
+const JWT_SECRET: string = process.env.SESSION_SECRET;
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
-function requireAuth(req: Request, res: Response, next: NextFunction) {
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const auth = req.headers.authorization ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) return res.status(401).json({ error: "Authentication required" });
+  if (!token) { res.status(401).json({ error: "Authentication required" }); return; }
 
   try {
     const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
     (req as any).userId = payload.userId;
     next();
   } catch {
-    return res.status(401).json({ error: "Invalid or expired token" });
+    res.status(401).json({ error: "Invalid or expired token" }); return;
   }
 }
 

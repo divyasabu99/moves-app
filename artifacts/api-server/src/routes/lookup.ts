@@ -43,7 +43,7 @@ Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood",
           },
           {
             role: "user",
-            content: `Partial name: "${query.trim()}" ${locationHint}`,
+            content: `Place name: "${name.trim()}" in or around NYC`,
           },
         ],
       }),
@@ -55,7 +55,6 @@ Respond ONLY with JSON: { "suggestions": [ { "name", "category", "neighborhood",
     }
 
     const data = await response.json() as any;
-    const content = data.choices?.[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
 
     res.json({
